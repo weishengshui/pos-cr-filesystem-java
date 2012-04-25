@@ -4,17 +4,21 @@ import java.io.File;
 import java.io.RandomAccessFile;
 
 public class FileBasedLowLevelIO implements ILowLevelIO {
+	/**
+	 * constants
+	 */
+	public static final int SUCCESS = 0;
+	public static final int FAILURE = 1;
 	private File disk;
 	private long size;
 	private RandomAccessFile raf;
 
 	public FileBasedLowLevelIO(String disk) {
-		initialize(disk);
-	}
-	
-	@Override
-	public void initialize(String disk) {
 		this.disk = new File(disk);
+		initialize();
+	}
+
+	public void initialize() {
 		size = this.disk.length();
 		try {
 			raf = new RandomAccessFile(this.disk, "rw");
@@ -30,10 +34,9 @@ public class FileBasedLowLevelIO implements ILowLevelIO {
 	 *         if offset >= size; -5 if length > buffer.length 0 operation
 	 *         success
 	 */
-	@Override
+
 	public int read(long offset, byte[] buffer, int length) {
-		// TODO
-		// FIXME
+		
 		try {
 			if (offset < 0) {
 				return -1;
@@ -63,7 +66,6 @@ public class FileBasedLowLevelIO implements ILowLevelIO {
 
 	}
 
-	@Override
 	public int write(long offset, byte[] buffer, int length) {
 		try {
 			if (offset < 0 || length < 1) {
@@ -71,7 +73,7 @@ public class FileBasedLowLevelIO implements ILowLevelIO {
 			} else if (this.size >= (offset + length)) {
 				raf.seek(offset);
 				if (length > buffer.length) {
-					raf.write(buffer, 0, buffer.length);
+					return 1;
 				} else
 					raf.write(buffer, 0, length);
 				return 0;
@@ -83,7 +85,6 @@ public class FileBasedLowLevelIO implements ILowLevelIO {
 		}
 	}
 
-	@Override
 	public void close() {
 		try {
 			raf.close();

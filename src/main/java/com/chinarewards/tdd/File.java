@@ -1,27 +1,38 @@
 package com.chinarewards.tdd;
 
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-
 public class File implements IFile {
+	private byte[] buffer; // 内容变量，用于read操作后，存放读取后的数据
+	private long position;// 文件指针，当open操作后，该偏移量的值为0，当read或write后会自动加读或写的长度
 	private String fileName;
-	private CRFileSystem crfs;
 
 	@Override
-	public int open(String fileName, String contents) {
+	public static IFile open(String fileName) {
+		// TODO Auto-generated method stub
+		return new File();
+	}
+
+	@Override
+	public boolean createNewFile() {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public int write(byte[] b, int off, int len) {
 		// TODO Auto-generated method stub
 		return 0;
 	}
 
 	@Override
-	public int save(String fileName, String contents) {
+	public byte[] read(int length) {
 		// TODO Auto-generated method stub
-		return 0;
+		return null;
 	}
 
-	public File() {
-		crfs = new CRFileSystem();
+	@Override
+	public long seek(long pos) {
+		// TODO Auto-generated method stub
+		return 0;
 	}
 
 	@Override
@@ -31,64 +42,39 @@ public class File implements IFile {
 	}
 
 	@Override
-	public int delete() {
+	public boolean delete() {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean exists() {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public String getName() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public long lastModified() {
 		// TODO Auto-generated method stub
 		return 0;
 	}
-	public Object[] getFileProperty() {
-		byte[] metadata = crfs.findMetadataByFilename(fileName);
-		if (null != metadata) {
-			String filename = byteToString(metadata, 0, 64, "ISO-8859-1");
-			List<Object> fileProperty = new ArrayList<Object>();
-			byte[] createdDate = new byte[8];
-			byte[] modifiedDate = new byte[8];
-			for (int index = 64; index < 82; index++) {
-				createdDate[index - 64] = metadata[index];
-				modifiedDate[index - 64] = metadata[index + 8];
-			}
-			Date cDate = new Date(dateByteToLong(createdDate));
-			Date mDate = new Date(dateByteToLong(modifiedDate));
-			byte[] inodeBytes = new byte[2];
-			inodeBytes[0] = metadata[80];
-			inodeBytes[1] = metadata[81];
-			int inode = (inodeBytes[0] & 0xff) << 8 + (inodeBytes[1] & 0xff);
-			Integer Inode = new Integer(inode);
-			fileProperty.add(filename);
-			fileProperty.add(cDate);
-			fileProperty.add(mDate);
-			fileProperty.add(Inode);
-			return fileProperty.toArray();
-		}
+
+	@Override
+	public String[] list() {
+		// TODO Auto-generated method stub
 		return null;
 	}
-	
-	private long dateByteToLong(byte[] bytes) {
-		int length = bytes.length;
-		long times = 0;
-		if (length == 8) {
-			for (int i = 0; i < length; i++) {
-				times += (bytes[i] & 0xff) << ((length - 1) * 8 - i * 8);
-			}
-			return times;
-		}
-		return -1;
+
+	@Override
+	public long length() {
+		// TODO Auto-generated method stub
+		return 0;
 	}
-	private String byteToString(byte[] bytes, int offset, int length,
-			String charset) {
-		try {
-			int position = 0;
-			for (; position < length; position++) {
-				if (bytes[position] == 0x00) {
-					break;
-				}
-			}
-			if (position > 0) {
-				String fileName = new String(bytes, offset, position, charset);
-				return fileName;
-			}
-			return null;
-		} catch (Exception e) {
-			return null;
-		}
-	}
+
 }

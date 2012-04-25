@@ -1,10 +1,24 @@
 package com.chinarewards.tdd;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
 public class CRFileSystem implements IFilesystem {
+
+	/**
+	 * constants
+	 */
+	public static final int FAILURE = 1;
+	public static final int SUCCESS = 0;
+	public static final int PARAM_INVALID = -1;
+	public static final int FILE_EXIST = -2;
+	public static final int NOT_FORMAT = -3;
+	public static final int DISK_FULL = -4;
+	public static final int IO_WRONG = -5;
+	public static final int FILE_NOT_EXIST = -6;
 	/**
 	 * headerLength: the length of header fatLength: the length of fat
 	 * metaDataLength: the length of meta data dataBlockLength: the length of
@@ -24,6 +38,7 @@ public class CRFileSystem implements IFilesystem {
 	private int wasteBlockLength;
 	private int nOfDataEntrys;
 	private int preEntryLengthInDatablock;
+	private byte[] fatBitMap;
 
 	public CRFileSystem(FileBasedLowLevelIO llio) {
 		this.llio = llio;
@@ -32,39 +47,40 @@ public class CRFileSystem implements IFilesystem {
 	public CRFileSystem() {
 	}
 
-	@Override
 	public int format(boolean quick, int sizeOfEntry) {
-
 		if (sizeOfEntry < 0) {
-			return 1;
+			return PARAM_INVALID;
 		}
 		preEntryLengthInDatablock = sizeOfEntry;
 		nOfDataEntrys = (int) (llio.getSize() - headerLength)
 				/ (preEntryLengthInFat * 2 + preEntryLengthInMetaData + preEntryLengthInDatablock);
 		if (nOfDataEntrys < 1) {
-			return 1;
+			return PARAM_INVALID;
 		}
 		fatLength = nOfDataEntrys * preEntryLengthInFat;
 		metaDataLength = nOfDataEntrys * preEntryLengthInMetaData;
 		dataBlockLength = nOfDataEntrys * preEntryLengthInDatablock;
 		wasteBlockLength = (int) (llio.getSize() - headerLength - fatLength * 2
 				- metaDataLength - dataBlockLength);
-
+		fatBitMap = new byte[nOfDataEntrys];
+		for (int i = 0; i < fatBitMap.length; i++) {
+			fatBitMap[i] = 0;
+		}
 		if (!formatFsInformation()) {
-			return 1;
+			return FAILURE;
 		} else if (!formatFileAllocationTable(1)) {
-			return 1;
+			return FAILURE;
 		} else if (!formatFileAllocationTable(2)) {
-			return 1;
+			return FAILURE;
 		} else if (!formatMetaData()) {
-			return 1;
-		} else if (!quick) {
+			return FAILURE;
+		} else if (quick) {
 			if (!formatDataBlock()) {
-				return 1;
+				return FAILURE;
 			}
 		}
 
-		return 0;
+		return SUCCESS;
 	}
 
 	private boolean formatFsInformation() {
@@ -142,13 +158,14 @@ public class CRFileSystem implements IFilesystem {
 	/**
 	 * 
 	 * @param fatNumber
-	 * @return 1 format the file allocation table one; 2 format the file
-	 *         allocation table two;other return false
+	 *            1 format the file allocation table one; 2 format the file
+	 *            allocation table two;
+	 * @return
 	 * 
 	 */
 	private boolean formatFileAllocationTable(int fatNumber) {
 		int offset;
-		byte free = 0x00;
+		byte free = (byte) 0xfe;
 		if (fatNumber == 1) {
 			offset = headerLength;
 		} else if (fatNumber == 2) {
@@ -195,7 +212,6 @@ public class CRFileSystem implements IFilesystem {
 		return true;
 	}
 
-	@Override
 	public boolean isFormat() {
 		byte[] fsType_and_is_Format = new byte[1];
 		if (llio.read(0, fsType_and_is_Format, fsType_and_is_Format.length) == 0) {
@@ -213,25 +229,22 @@ public class CRFileSystem implements IFilesystem {
 	 *         than 64 bytes;-4 if the disk is not format;-5 create file fail
 	 *         when there is no meta data;-6 when the disk is full; -7 I/O wrong
 	 */
-	@Override
+
 	public int createFile(String fileName) {
-		if (null == fileName || "".equals(fileName)) {
-			return -1;
+		if (null == fileName || "".equals(fileName.trim())) {
+			return PARAM_INVALID;
 		}
 		if (isExists(fileName)) {
-			return -2;
+			return FILE_EXIST;
 		}
-		byte[] fileNameByte = fileName.getBytes();
+		byte[] fileNameByte = fileName.trim().getBytes();
 		if (fileNameByte.length > 64) {
-			return -3;
+			return PARAM_INVALID;
 		}
 		if (!isFormat()) {
-			return -4;
+			return NOT_FORMAT;
 		}
 		int metadataNumber = getMetaDataNumber();
-		if (metadataNumber == -1) {
-			return -5;
-		}
 		int offset = headerLength + fatLength * 2;
 		offset += metadataNumber * preEntryLengthInMetaData;
 		byte[] buffer = new byte[preEntryLengthInMetaData];
@@ -256,23 +269,21 @@ public class CRFileSystem implements IFilesystem {
 		position = 80;
 		int fatNumber = getFatNumber();
 		if (fatNumber == -1) {
-			return -6;
+			return DISK_FULL;
 		}
 		byte[] startIndex = convertIntTo_2_Bytes(fatNumber);
 		buffer[position++] = startIndex[0];
 		buffer[position++] = startIndex[1];
-		byte[] startNode = new byte[2];
-		startNode[0] = (byte) 0xff;
-		startNode[1] = (byte) 0xff;
-		int fatOffset = headerLength + preEntryLengthInFat * fatNumber;
-		int writeMetadata = llio.write(offset, buffer, buffer.length);
-		int writeFatOne = llio.write(fatOffset, startNode, startNode.length);
-		int writeFatTwo = llio.write(fatOffset + fatLength, startNode,
-				startNode.length);
-		if ((writeMetadata != 0) || (writeFatOne != 0) || (writeFatTwo != 0)) {
-			return -7;
+		byte[] startNode = new byte[preEntryLengthInFat];
+		for (int i = 0; i < preEntryLengthInFat; i++) {
+			startNode[i] = (byte) 0xff;
 		}
-		return 0;
+		int writeMetadata = llio.write(offset, buffer, buffer.length);
+		int writeStartFat = writeEntryInFat(fatNumber, startNode);
+		if ((writeMetadata != 0) || (writeStartFat != 0)) {
+			return IO_WRONG;
+		}
+		return SUCCESS;
 	}
 
 	/**
@@ -300,17 +311,12 @@ public class CRFileSystem implements IFilesystem {
 	}
 
 	public long getAvailableSpace() {
-		int offset = headerLength;
 		long availeableSpace;
 		int fatCount = 0;
-		byte[] fatEntry = new byte[2];
 		for (int index = 0; index < nOfDataEntrys; index++) {
-			if (llio.read(offset, fatEntry, fatEntry.length) == 0) {
-				if (isEntryFree(fatEntry)) {
-					fatCount++;
-				}
+			if (isFatEntryFree(index) == 0) {
+				fatCount++;
 			}
-			offset += preEntryLengthInFat;
 		}
 		availeableSpace = fatCount * preEntryLengthInDatablock;
 		return availeableSpace;
@@ -324,53 +330,243 @@ public class CRFileSystem implements IFilesystem {
 	 */
 	private int getFatNumber() {
 		if (isFormat()) {
-			int offset = headerLength;
-			byte[] buffer = new byte[preEntryLengthInFat];
 			for (int index = 0; index < nOfDataEntrys; index++) {
-				if (llio.read(offset, buffer, buffer.length) == 0) {
-					if (isEntryFree(buffer)) {
-						return index;
-					}
-				} else {
-					return -1;
+				if (fatBitMap[index] == 0) {
+					return index;
 				}
-				offset += preEntryLengthInFat;
 			}
 			return -1;
 		}
 		return -1;
 	}
 
-	@Override
+	public long findDatablockOffsetByFileName(String fileName) {
+		if (!isFormat()) {
+			return NOT_FORMAT;
+		}
+		if (isRightFilename(fileName)) {
+			if (isExists(fileName)) {
+				byte[] metadataEntry = findMetadataEntryByFilename(fileName);
+				return (((metadataEntry[80] & 0xff) << 8) + (metadataEntry[81] & 0xff))
+						* preEntryLengthInDatablock;
+			} else {
+				return FILE_NOT_EXIST;
+			}
+		} else {
+			return PARAM_INVALID;
+		}
+	}
+
 	public int deleteFile(String fileName) {
-		// TODO Auto-generated method stub
-		return 0;
+		if (!isFormat()) {
+			return NOT_FORMAT;
+		}
+		if (isRightFilename(fileName)) {
+			if (isExists(fileName)) {
+				int metadataEntryIndex = findMetadataEntryIndexByFilename(fileName);
+				byte[] metadataEntry = findMetadataEntryByFilename(fileName);
+				byte[] startIndexBytes = new byte[preEntryLengthInFat];
+				startIndexBytes[0] = metadataEntry[preEntryLengthInMetaData - 2];
+				startIndexBytes[1] = metadataEntry[preEntryLengthInMetaData - 1];
+				int startIndexInt = ((startIndexBytes[0] & 0xff) << 8)
+						+ (startIndexBytes[1] & 0xff);
+				emptyFileContent(startIndexInt * preEntryLengthInDatablock);
+				for (int i = 0; i < metadataEntry.length; i++) {
+					metadataEntry[i] = 0x00;
+				}
+				if (llio.write(headerLength + fatLength * 2
+						+ metadataEntryIndex * preEntryLengthInMetaData,
+						metadataEntry, metadataEntry.length) != 0) {
+					return IO_WRONG;
+				}
+				return SUCCESS;
+			} else {
+				return FILE_NOT_EXIST;
+			}
+		} else {
+			return PARAM_INVALID;
+		}
 	}
 
-	@Override
-	public int read(long offset, byte[] buffer, int length) {
-		// TODO Auto-generated method stub
-		return 0;
+	private boolean isRightFilename(String fileName) {
+		if (null == fileName || "".equals(fileName.trim())) {
+			return false;
+		}
+		if (fileName.getBytes().length > 64) {
+			return false;
+		}
+		return true;
 	}
 
-	@Override
 	/**
-	 * @return 	-1 param invalid
-	 * @return 	-2 not enough space
-	 * @return	-3 I/O wrong
-	 * @return -4 other errors
-	 * @return	0 write success
+	 * 
+	 * @param offset
+	 *            : data block offset begin 0
+	 * 
+	 * @return -1 param invalid
+	 * @return -2 Read more than the length of the disk space
+	 * @return -3 the offset is not the begin of a file
+	 * @return -4 Read more than the length of the file
+	 * @return -5 I/O wrong
+	 * @return 0 write success
+	 */
+	public int read(long offset, byte[] buffer, int length) {
+		if (offset < 0 || null == buffer || length < 1
+				|| length > buffer.length || offset > dataBlockLength
+				|| (length + offset) > dataBlockLength
+				|| offset % preEntryLengthInDatablock != 0) {
+			return PARAM_INVALID;
+		}
+		if (length > (getAvailableSpace() + preEntryLengthInDatablock)) {
+			return PARAM_INVALID;
+		}
+
+		if (!isFileBegin(offset)) {
+			return PARAM_INVALID;
+		}
+		if (length > getFileLength(offset)) {
+			return PARAM_INVALID;
+		}
+		int last = length % preEntryLengthInDatablock;
+		int readFatEntryCount = length / preEntryLengthInDatablock;
+		readFatEntryCount = (last == 0) ? (readFatEntryCount)
+				: (readFatEntryCount + 1);
+		int fatIndex = (int) offset / preEntryLengthInDatablock;
+		int fatOffset = headerLength + fatIndex * preEntryLengthInFat;
+		int datablockBegin = headerLength + fatLength * 2 + metaDataLength;
+		int datablockOffset = datablockBegin + fatIndex
+				* preEntryLengthInDatablock;
+		byte[] fatEntryContent = new byte[preEntryLengthInFat];
+		for (int i = 0; i < readFatEntryCount; i++) {
+			byte[] oneDatablockEntry;
+			if (i == (readFatEntryCount - 1)) {
+
+				if (last == 0) {
+					oneDatablockEntry = new byte[preEntryLengthInDatablock];
+					if (llio.read(datablockOffset, oneDatablockEntry,
+							oneDatablockEntry.length) != 0) {
+						return IO_WRONG;
+					}
+				} else {
+					oneDatablockEntry = new byte[last];
+					if (llio.read(datablockOffset, oneDatablockEntry,
+							oneDatablockEntry.length) != 0) {
+						return IO_WRONG;
+					}
+				}
+			} else {
+				oneDatablockEntry = new byte[preEntryLengthInDatablock];
+				if (llio.read(datablockOffset, oneDatablockEntry,
+						oneDatablockEntry.length) != 0) {
+					return IO_WRONG;
+				}
+			}
+			for (int fileContentIndex = i * preEntryLengthInDatablock, index = 0; index < oneDatablockEntry.length; index++) {
+				buffer[fileContentIndex++] = oneDatablockEntry[index];
+			}
+			if (llio.read(fatOffset, fatEntryContent, fatEntryContent.length) == 0) {
+				if (fatEntryContent[0] == (byte) 0xff
+						&& fatEntryContent[1] == (byte) 0x00) {
+					return SUCCESS; // Normal exit ***************************
+				} else {
+					fatIndex = ((fatEntryContent[0] & 0xff) << 8)
+							+ (fatEntryContent[1] & 0xff);
+					fatOffset = headerLength + fatIndex * preEntryLengthInFat;
+					datablockOffset = datablockBegin + fatIndex
+							* preEntryLengthInDatablock;
+				}
+			} else {
+				return IO_WRONG;
+			}
+		}
+
+		// int
+		return SUCCESS;
+	}
+
+	/**
+	 * 
+	 * @param offset
+	 * @return -1 I/O wrong
+	 */
+	private long getFileLength(long offset) {
+		if (!isFileBegin(offset)) {
+			return PARAM_INVALID;
+		}
+		int fatStartIndex = (int) offset / preEntryLengthInDatablock;
+
+		int nextFatEntryIndex = -1;
+		long fileLength = 0;
+
+		byte[] fatEntryBytes = new byte[preEntryLengthInFat];
+		int fatOffset = headerLength + fatStartIndex * preEntryLengthInFat;
+		int fatCount = 1;
+		int realLengthOfLastDatablockEntryInFile = -1;
+		if (llio.read(fatOffset, fatEntryBytes, fatEntryBytes.length) == 0) {
+			while (!Arrays.equals(fatEntryBytes, new byte[] { (byte) 0xff,
+					(byte) 0xff })) {
+				fatCount++;
+				nextFatEntryIndex = ((fatEntryBytes[0] & 0xff) << 8)
+						+ (fatEntryBytes[1] & 0xff);
+				fatOffset = headerLength + nextFatEntryIndex * 2;
+				if (llio.read(fatOffset, fatEntryBytes, fatEntryBytes.length) != 0) {
+					return -1;
+				}
+			}
+			long lastDatablockEntryOfFileIndex;
+			if (fatCount == 1) {
+				lastDatablockEntryOfFileIndex = headerLength + fatLength * 2
+						+ metaDataLength + fatStartIndex
+						* preEntryLengthInDatablock;
+			} else {
+				lastDatablockEntryOfFileIndex = headerLength + fatLength * 2
+						+ metaDataLength + nextFatEntryIndex
+						* preEntryLengthInDatablock;
+			}
+			byte[] lastDatablockEntryOfFileBytes = new byte[preEntryLengthInDatablock];
+			if (llio.read(lastDatablockEntryOfFileIndex,
+					lastDatablockEntryOfFileBytes,
+					lastDatablockEntryOfFileBytes.length) == 0) {
+				for (realLengthOfLastDatablockEntryInFile = 0; realLengthOfLastDatablockEntryInFile < lastDatablockEntryOfFileBytes.length; realLengthOfLastDatablockEntryInFile++) {
+					if (lastDatablockEntryOfFileBytes[realLengthOfLastDatablockEntryInFile] == (byte) 0x00) {
+						break;
+					}
+				}
+			} else {
+				return -1;
+			}
+		} else {
+			return -1;
+		}
+		fileLength = (fatCount - 1) * preEntryLengthInDatablock
+				+ realLengthOfLastDatablockEntryInFile;
+		return fileLength;
+	}
+
+	public long getFileLength(String fileName) {
+		return getFileLength(findDatablockOffsetByFileName(fileName));
+	}
+
+	/**
+	 * @param offset
+	 *            : data block offset begin 0
 	 */
 	public int write(long offset, byte[] buffer, int length) {
 
 		if (offset < 0 || null == buffer || length < 1
 				|| length > buffer.length || offset > dataBlockLength
-				|| (length + offset) > dataBlockLength) {
-			return -1;
+				|| offset % preEntryLengthInDatablock != 0) {
+			return PARAM_INVALID;
 		}
 
-		if (length > (getAvailableSpace() + preEntryLengthInDatablock)) {
-			return -2;
+		if (emptyFileContent(offset) != 0) {
+			return PARAM_INVALID;
+		}
+		if (length > (getAvailableSpace())) {
+			return PARAM_INVALID;
+		}
+		if (!isFileBegin(offset)) {
+			return PARAM_INVALID;
 		}
 
 		int needFatCount = length / preEntryLengthInDatablock;
@@ -389,13 +585,24 @@ public class CRFileSystem implements IFilesystem {
 		EOF[0] = (byte) 0xff;
 		EOF[1] = (byte) 0xff;
 
-		int fatIndex = (int) offset / preEntryLengthInDatablock;
-		byte[] fatEntryBuffer;
-		int fatNum;
+		int currentIndex = (int) offset / preEntryLengthInDatablock;
 
-		long times = 0;
+		if (writeEntryInFat(currentIndex, EOF) != 0) {
+			return IO_WRONG;
+		}
+		Date now = new Date();
+		byte[] modifiedDate = convertLongTo_8_Bytes(now.getTime());
+		int metadataEntryIndex = findMetadataEntryIndexByFatIndex(currentIndex);
+		if (llio.write(headerLength + fatLength * 2 + metadataEntryIndex
+				* preEntryLengthInMetaData + 72, modifiedDate,
+				8) != 0) {
+			return IO_WRONG;
+		}
+		byte[] fatEntryBuffer;
+		int nextIndex;
+
 		for (int index = 0; index < needFatCount; index++) {
-			dataBlockOffset = dataBlockStart + fatIndex
+			dataBlockOffset = dataBlockStart + currentIndex
 					* preEntryLengthInDatablock;
 			bufferOffset = index * preEntryLengthInDatablock;
 
@@ -403,37 +610,125 @@ public class CRFileSystem implements IFilesystem {
 				if (last == 0) {
 					subbuffer = subBuffer(buffer, bufferOffset,
 							preEntryLengthInDatablock);
+					if ((llio.write(dataBlockOffset, subbuffer,
+							subbuffer.length) != 0)
+							|| (writeEntryInFat(currentIndex, EOF) != 0)) {
+						return IO_WRONG;
+					}
 				} else {
 					subbuffer = subBuffer(buffer, bufferOffset, last);
+					if (llio.write(dataBlockOffset, subbuffer, subbuffer.length) != 0
+							|| writeEntryInFat(currentIndex, EOF) != 0) {
+						return IO_WRONG;
+					}
+					// end of the file when last datablock entry
+					if (llio.write(dataBlockOffset + subbuffer.length,
+							new byte[] { 0x00 }, 1) != 0) {
+						return IO_WRONG;
+					}
 				}
-				fatEntryBuffer = EOF;
-				if (llio.write(dataBlockOffset, subbuffer, subbuffer.length) != 0) {
-					return -3;
-				}
-				System.out.println(times);
-				return 0; // normally:end of for
+				return SUCCESS; // normally:end of for
 			} else {
-				long time1 = System.currentTimeMillis();
-				fatNum = getFatNumber();
-				times += System.currentTimeMillis() - time1;
+				nextIndex = getFatNumber();
+				fatBitMap[nextIndex] = 1;
 				subbuffer = subBuffer(buffer, bufferOffset,
 						preEntryLengthInDatablock);
-				fatEntryBuffer = convertIntTo_2_Bytes(fatNum);
+				fatEntryBuffer = convertIntTo_2_Bytes(nextIndex);
 				if (llio.write(dataBlockOffset, subbuffer, subbuffer.length) != 0
-						|| writeEntryInFat(fatIndex, fatEntryBuffer) != 0
-						|| writeEntryInFat(fatNum, EOF) != 0) {
-					return -3;
+						|| writeEntryInFat(currentIndex, fatEntryBuffer) != 0
+						|| writeEntryInFat(nextIndex, EOF) != 0) {
+					return IO_WRONG;
 				}
-
-				fatIndex = fatNum;
+				currentIndex = nextIndex;
 			}
 		}
-		return -4;
+		return PARAM_INVALID;
+	}
+
+	private int findMetadataEntryIndexByFatIndex(int fatIndex) {
+		if (!isFormat()) {
+			return NOT_FORMAT;
+		}
+
+		if (fatIndex > -1 && fatIndex < nOfDataEntrys) {
+			byte[] startFatIndexBytes = new byte[preEntryLengthInFat];
+			int metadataOffset = headerLength + fatLength * 2;
+			for (int index = 0; index < nOfDataEntrys; index++) {
+				if (llio.read(metadataOffset + 80, startFatIndexBytes,
+						startFatIndexBytes.length) == 0) {
+					if (fatIndex == (((startFatIndexBytes[0] & 0xff) << 8) + (startFatIndexBytes[1] & 0xff))) {
+						return index;
+					}
+				} else {
+					return IO_WRONG;
+				}
+				metadataOffset += preEntryLengthInMetaData;
+			}
+			return FAILURE;
+		} else {
+			return PARAM_INVALID;
+		}
+	}
+
+	private int emptyFileContent(long offset) {
+		if (!isFileBegin(offset)) {
+			return PARAM_INVALID;
+		}
+		int currentIndex = (int) offset / preEntryLengthInDatablock;
+		int nextIndex;
+		byte[] free = new byte[preEntryLengthInFat];
+		for (int i = 0; i < free.length; i++) {
+			free[i] = (byte) 0xfe;
+		}
+		byte[] indexBuffer = new byte[preEntryLengthInFat];
+		if (llio.read(headerLength + currentIndex * preEntryLengthInFat,
+				indexBuffer, indexBuffer.length) == 0) {
+			while (indexBuffer[0] != (byte) 0xff
+					|| indexBuffer[1] != (byte) 0xff) {
+				nextIndex = ((indexBuffer[0] & 0xff) << 8)
+						+ (indexBuffer[1] & 0xff);
+				if (writeEntryInFat(currentIndex, free) != 0) {
+					return FAILURE;
+				}
+				currentIndex = nextIndex;
+				if (llio.read(
+						headerLength + currentIndex * preEntryLengthInFat,
+						indexBuffer, indexBuffer.length) != 0) {
+					return FAILURE;
+				}
+			}
+			if (writeEntryInFat(currentIndex, free) != 0) {
+				return FAILURE;
+			}
+		}
+		return SUCCESS;
+	}
+
+	/**
+	 * check the offset is the file begin
+	 */
+	private boolean isFileBegin(long offset) {
+		String[] files = listFiles();
+		if (files == null) {
+			return false;
+		}
+		int fatIndex = (int) offset / preEntryLengthInDatablock;
+		for (int i = 0; i < files.length; i++) {
+			byte[] metadataEntry = findMetadataEntryByFilename(files[i]);
+			byte[] fileStartIndexByte = subBuffer(metadataEntry, 80, 2);
+			int fileStartIndexInt = ((fileStartIndexByte[0] & 0xff) << 8)
+					+ (fileStartIndexByte[1] & 0xff);
+			if (fatIndex == fileStartIndexInt) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
 	 * 
 	 * @param fatIndex
+	 *            fat entry index
 	 * @param buffer
 	 * @return -1 param invalid
 	 * @return -2 I/O wrong
@@ -441,12 +736,21 @@ public class CRFileSystem implements IFilesystem {
 	 */
 	private int writeEntryInFat(int fatIndex, byte[] buffer) {
 		if (fatIndex < 0 || fatIndex >= nOfDataEntrys || null == buffer
-				|| buffer.length != 2) {
+				|| buffer.length != preEntryLengthInFat) {
 			return -1;
+		}
+		byte[] free = new byte[preEntryLengthInFat];
+		for (int i = 0; i < preEntryLengthInFat; i++) {
+			free[i] = (byte) 0xfe;
 		}
 		int fatOffset = headerLength + fatIndex * preEntryLengthInFat;
 		if (llio.write(fatOffset, buffer, buffer.length) == 0
 				&& llio.write(fatOffset + fatLength, buffer, buffer.length) == 0) {
+			if (buffer[0] == free[0] && buffer[1] == free[1]) {
+				fatBitMap[fatIndex] = 0;
+			} else {
+				fatBitMap[fatIndex] = 1;
+			}
 			return 0;
 		} else {
 			return -2;
@@ -476,9 +780,11 @@ public class CRFileSystem implements IFilesystem {
 		return subbuffer;
 	}
 
-	@Override
 	public boolean isExists(String fileName) {
 		if (isFormat()) {
+			if (null == fileName || "".equals(fileName.trim())) {
+				return false;
+			}
 			String[] files = listFiles();
 			if (null == files || files.length == 0) {
 				return false;
@@ -512,7 +818,6 @@ public class CRFileSystem implements IFilesystem {
 		}
 	}
 
-	@Override
 	public char[] errorReference(int errorCode, String methodName) {
 		// TODO Auto-generated method stub
 		return null;
@@ -539,9 +844,9 @@ public class CRFileSystem implements IFilesystem {
 	 * @return
 	 */
 	private byte[] convertIntTo_2_Bytes(int intNumber) {
-		byte[] bytes = new byte[2];
+		byte[] bytes = new byte[preEntryLengthInFat];
 		for (int i = 0; i < bytes.length; i++) {
-			bytes[i] = (byte) ((intNumber >> (8 - i * 8)) & 0xFF);
+			bytes[i] = (byte) ((intNumber >> (8 - i * 8)) & 0xff);
 		}
 		return bytes;
 	}
@@ -556,7 +861,7 @@ public class CRFileSystem implements IFilesystem {
 	private byte[] convertLongTo_8_Bytes(long longNumber) {
 		byte[] bytes = new byte[8];
 		for (int i = 0; i < bytes.length; i++) {
-			bytes[i] = (byte) ((longNumber >> (56 - i * 8)) & 0xFF);
+			bytes[i] = (byte) (((longNumber >>> (56 - i * 8))) & 0xff);
 		}
 		return bytes;
 	}
@@ -568,7 +873,7 @@ public class CRFileSystem implements IFilesystem {
 	 */
 	public int getFatOneLength() {
 		if (!isFormat()) {
-			return -1;
+			return NOT_FORMAT;
 		}
 		int offset = 7;
 		byte[] buffer = new byte[4];
@@ -588,7 +893,7 @@ public class CRFileSystem implements IFilesystem {
 
 	public int getFatTwoLength() {
 		if (!isFormat()) {
-			return -1;
+			return NOT_FORMAT;
 		}
 		int offset = 11;
 		byte[] buffer = new byte[4];
@@ -607,7 +912,7 @@ public class CRFileSystem implements IFilesystem {
 	 */
 	public int getMetaDataLength() {
 		if (!isFormat()) {
-			return -1;
+			return NOT_FORMAT;
 		}
 		int offset = 15;
 		byte[] buffer = new byte[4];
@@ -626,7 +931,7 @@ public class CRFileSystem implements IFilesystem {
 	 */
 	public long getDataBlockLength() {
 		if (!isFormat()) {
-			return -1;
+			return NOT_FORMAT;
 		}
 		int offset = 19;
 		byte[] buffer = new byte[8];
@@ -645,7 +950,7 @@ public class CRFileSystem implements IFilesystem {
 	 */
 	public int getWasteBlockLength() {
 		if (!isFormat()) {
-			return -1;
+			return NOT_FORMAT;
 		}
 		int offset = 27;
 		byte[] buffer = new byte[4];
@@ -657,7 +962,6 @@ public class CRFileSystem implements IFilesystem {
 		return wasteblockLength;
 	}
 
-	@Override
 	public String[] listFiles() {
 		if (isFormat()) {
 			List<String> files = new ArrayList<String>();
@@ -687,14 +991,42 @@ public class CRFileSystem implements IFilesystem {
 		long times = 0;
 		if (length == 8) {
 			for (int i = 0; i < length; i++) {
-				times += (bytes[i] & 0xff) << ((length - 1) * 8 - i * 8);
+				times<<=8;
+				times ^= (long)bytes[i] & 0xff;
 			}
 			return times;
 		}
 		return -1;
 	}
 
-	public byte[] findMetadataByFilename(String fileName) {
+	public Object[] getFileProperty(String fileName) {
+		byte[] metadata = findMetadataEntryByFilename(fileName);
+		if (null != metadata) {
+			String filename = byteToString(metadata, 0, 64, "ISO-8859-1");
+			List<Object> fileProperty = new ArrayList<Object>();
+			byte[] createdDate = new byte[8];
+			byte[] modifiedDate = new byte[8];
+			for (int index = 64; index < 72; index++) {
+				createdDate[index - 64] = metadata[index];
+				modifiedDate[index - 64] = metadata[index + 8];
+			}
+			Date cDate = new Date(dateByteToLong(createdDate));
+			Date mDate = new Date(dateByteToLong(modifiedDate));
+			byte[] inodeBytes = new byte[2];
+			inodeBytes[0] = metadata[80];
+			inodeBytes[1] = metadata[81];
+			int inode = ((inodeBytes[0] & 0xff) << 8) + (inodeBytes[1] & 0xff);
+			Integer Inode = new Integer(inode);
+			fileProperty.add(filename);
+			fileProperty.add(cDate);
+			fileProperty.add(mDate);
+			fileProperty.add(Inode);
+			return fileProperty.toArray();
+		}
+		return null;
+	}
+	
+	public byte[] findMetadataEntryByFilename(String fileName) {
 		if (null != fileName) {
 			if (isExists(fileName)) {
 				int maxFileNameLength = 64;
@@ -718,6 +1050,33 @@ public class CRFileSystem implements IFilesystem {
 		return null;
 	}
 
+	private int findMetadataEntryIndexByFilename(String filename) {
+		if (isRightFilename(filename)) {
+			if (isExists(filename)) {
+				int maxFileNameLength = 64;
+				int offset = headerLength + fatLength * 2;
+				byte[] metadataBytes = new byte[preEntryLengthInMetaData];
+				String charset = "ISO-8859-1";
+				for (int index = 0; index < nOfDataEntrys; index++) {
+					if (llio.read(offset, metadataBytes, metadataBytes.length) == 0) {
+						if (!isEntryFree(metadataBytes)) {
+							if (filename.equals(byteToString(metadataBytes, 0,
+									maxFileNameLength, charset))) {
+								return index;
+							}
+						}
+					}
+					offset += preEntryLengthInMetaData;
+				}
+				return PARAM_INVALID;
+			} else {
+				return FILE_NOT_EXIST;
+			}
+		} else {
+			return PARAM_INVALID;
+		}
+	}
+
 	private boolean isEntryFree(byte[] buffer) {
 		byte free = 0x00;
 		for (int i = 0; i < buffer.length; i++) {
@@ -727,4 +1086,54 @@ public class CRFileSystem implements IFilesystem {
 		}
 		return true;
 	}
+
+	private int getFatLength() {
+		return getFatOneLength();
+	}
+
+	private void initFileSystem() {
+		if (isFormat()) {
+			fatLength = getFatLength();
+			metaDataLength = getMetaDataLength();
+			dataBlockLength = getDataBlockLength();
+			nOfDataEntrys = fatLength / preEntryLengthInFat;
+			preEntryLengthInDatablock = (int) dataBlockLength / nOfDataEntrys;
+			wasteBlockLength = (int) (llio.getSize() - headerLength - fatLength
+					* 2 - metaDataLength - dataBlockLength);
+			fatBitMap = new byte[nOfDataEntrys];
+			for (int fatIndex = 0; fatIndex < nOfDataEntrys; fatIndex++) {
+				if (isFatEntryFree(fatIndex) == 0) {
+					fatBitMap[fatIndex] = 0;
+				} else {
+					fatBitMap[fatIndex] = 1;
+				}
+			}
+		}
+	}
+
+	private int isFatEntryFree(int fatIndex) {
+		int fatOffset = headerLength + fatIndex * preEntryLengthInFat;
+		byte free = (byte) 0xfe;
+		byte[] fatEntry = new byte[preEntryLengthInFat];
+		if (llio.read(fatOffset, fatEntry, fatEntry.length) == 0) {
+			for (int i = 0; i < fatEntry.length; i++) {
+				if (fatEntry[i] != free) {
+					return 1;
+				}
+			}
+			return 0;
+		}
+		return IO_WRONG;
+	}
+
+	public void open() {
+		llio.initialize();
+		initFileSystem();
+	}
+
+	public void close() {
+		llio.close();
+		fatBitMap = null;
+	}
+
 }

@@ -29,6 +29,16 @@ public interface IFilesystem {
 
 	boolean isExists(String path);
 
+	/**
+	 * open disk
+	 */
+	void open();
+
+	/**
+	 * close disk
+	 */
+	void close();
+
 	char[] errorReference(int errorCode, String methodName);
 
 	String[] listFiles();
