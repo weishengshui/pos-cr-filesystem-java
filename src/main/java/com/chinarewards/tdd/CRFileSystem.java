@@ -1,6 +1,5 @@
 package com.chinarewards.tdd;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -39,12 +38,30 @@ public class CRFileSystem implements IFilesystem {
 	private int nOfDataEntrys;
 	private int preEntryLengthInDatablock;
 	private byte[] fatBitMap;
+	
+	/**
+	 * File stat 
+	 */
+	private Stat stat;
 
 	public CRFileSystem(FileBasedLowLevelIO llio) {
 		this.llio = llio;
 	}
+	
+	
+	
+	public int getPreEntryLengthInDatablock() {
+		return preEntryLengthInDatablock;
+	}
+
+
+	public void setPreEntryLengthInDatablock(int preEntryLengthInDatablock) {
+		this.preEntryLengthInDatablock = preEntryLengthInDatablock;
+	}
+
 
 	public CRFileSystem() {
+		llio = new FileBasedLowLevelIO("E:\\fileSystem\\system.vdk");
 	}
 
 	public int format(boolean quick, int sizeOfEntry) {
@@ -703,7 +720,9 @@ public class CRFileSystem implements IFilesystem {
 		}
 		return SUCCESS;
 	}
-
+	public int emptyFileContent() {
+		return FAILURE;
+	}
 	/**
 	 * check the offset is the file begin
 	 */
@@ -1136,4 +1155,16 @@ public class CRFileSystem implements IFilesystem {
 		fatBitMap = null;
 	}
 
+
+
+	public Stat getStat() {
+		return stat;
+	}
+
+
+
+	public void setStat(Stat stat) {
+		this.stat = stat;
+	}
+	
 }

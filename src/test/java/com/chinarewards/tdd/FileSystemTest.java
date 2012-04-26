@@ -11,14 +11,12 @@ public class FileSystemTest extends TestCase {
 	FileBasedLowLevelIO llio;
 	CRFileSystem fs;
 
-	@Override
 	protected void setUp() throws Exception {
 		super.setUp();
 		llio = new FileBasedLowLevelIO("E:\\fileSystem\\system.vdk");
 		fs = new CRFileSystem(llio);
 	}
 
-	@Override
 	protected void tearDown() throws Exception {
 		llio = null;
 		fs = null;

@@ -21,7 +21,7 @@ public interface IFileIO {
 	 */
 	public static final long EOF = -1;
 	public static final long BUFSIZ = 512;
-	public static final long FILENAME_MAX = 260;
+	public static final long FILENAME_MAX = 64;
 	public static final long FOPEN_MAX = 20;
 	public static final long _IOFBF = 0x0000;
 	public static final long _IOLBF = 0x0040;
@@ -61,7 +61,7 @@ public interface IFileIO {
 	 * disassociated and deallocated if automatic allocation was used.
 	 * 
 	 * @param stream  - the file stream to close
-	 * @return value  0​ on success, EOF otherwise 
+	 * @return value  0�?on success, EOF otherwise 
 	 * @time 2012-4-25 上午11:31:20
 	 * @author Seek
 	 */
@@ -85,8 +85,8 @@ public interface IFileIO {
 	 * @param stream 	- 	file stream to modify 
 	 * @param offset 	- 	number of characters to shift the position relative to origin 
 	 * @param origin 	- 	position to which offset is added. It can have one of the following values: SEEK_SET, SEEK_CUR, SEEK_END
-	 * @return 0​ upon success, nonzero value otherwise. Associated EOF flag is cleared for the stream and the effect of any ungetc is undone. 
-	 * @notes For text streams, the only valid values of offset are ​0​ (applicable to any origin) and a value 
+	 * @return 0�?upon success, nonzero value otherwise. Associated EOF flag is cleared for the stream and the effect of any ungetc is undone. 
+	 * @notes For text streams, the only valid values of offset are �?�?(applicable to any origin) and a value 
 	 * 		  returned by an earlier call to ftell (only applicable to SEEK_SET). 
 	 * @time 2012-4-25 上午11:52:50
 	 * @author Seek
