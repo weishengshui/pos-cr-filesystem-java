@@ -27,15 +27,15 @@ public class FileSystemTest extends TestCase {
 	public void test_FileSystem_Format() {
 		assertEquals(CRFileSystem.SUCCESS, fs.format(true, 512));
 		assertTrue(fs.isFormat());
-		assertEquals(3506, fs.getFatOneLength());
-		assertEquals(3506, fs.getFatTwoLength());
-		assertEquals(143746, fs.getMetaDataLength());
-		assertEquals(897536, fs.getDataBlockLength());
-		assertEquals(234, fs.getWasteBlockLength());
+		assertEquals(3460, fs.getFatOneLength());
+		assertEquals(3460, fs.getFatTwoLength());
+		assertEquals(155700, fs.getMetaDataLength());
+		assertEquals(885760, fs.getDataBlockLength());
+		assertEquals(148, fs.getWasteBlockLength());
 	}
 	
 	// case: format the disk and check the available space of disk
-	//¸ñÊ½»¯ºóÊý¾ÝÊÇ·ñ±»Çå³ý£¿
+	//ï¿½ï¿½Ê½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½
 	public void test_FileSystem_AfterFormat(){
 		assertEquals(CRFileSystem.SUCCESS, fs.format(false, 512));
 		assertEquals(CRFileSystem.SUCCESS, fs.createFile("newfile"));
@@ -58,14 +58,14 @@ public class FileSystemTest extends TestCase {
 				fs.write(0, newfileBuffer, newfileBuffer.length));
 		assertEquals(CRFileSystem.SUCCESS, fs.createFile("filename2"));
 
-		assertEquals(897536-1536, fs.getAvailableSpace());
+		assertEquals(885760-1536, fs.getAvailableSpace());
 		
 		assertEquals(CRFileSystem.SUCCESS, fs.format(false, 512));
-		assertEquals(897536, fs.getAvailableSpace());
+		assertEquals(885760, fs.getAvailableSpace());
 	}
 	
 	/**
-	 * ÐÂ½¨Ò»¸öÎÄ¼þ£¬Ð´³¬¹ýÒ»¸ö´ØµÄ´óÐ¡£¬¼´»áÁ¬½Óµ½Á½¸öAllocation Table Index
+	 * ï¿½Â½ï¿½Ò»ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ØµÄ´ï¿½Ð¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Óµï¿½ï¿½ï¿½ï¿½ï¿½Allocation Table Index
 	 */
 	public void test_FileSystem_moreThanOneDatablock(){
 		assertEquals(CRFileSystem.SUCCESS, fs.format(false, 512));
@@ -87,16 +87,18 @@ public class FileSystemTest extends TestCase {
 		// write full the disk,so there is no space to create new file
 		assertEquals(CRFileSystem.SUCCESS,
 				fs.write(0, newfileBuffer, newfileBuffer.length));
-		assertEquals(897536-1024, fs.getAvailableSpace());
+		assertEquals(885760-1024, fs.getAvailableSpace());
 	}
 	
 	
 	/**
-	 * open ÔÙÖ´ÐÐÒ»´Îopen¡£fileSystemÎ´open£¬Ö´ÐÐclose
+	 * open ï¿½ï¿½Ö´ï¿½ï¿½Ò»ï¿½ï¿½openï¿½ï¿½fileSystemÎ´openï¿½ï¿½Ö´ï¿½ï¿½close
 	 */
 	public void test_FileSystem_open_open_close_close(){
+		
 		assertEquals(CRFileSystem.SUCCESS, fs.format(false, 512));
 		assertEquals(CRFileSystem.SUCCESS, fs.createFile("newfile"));
+		
 		String newfileContents = new String(
 				"assertNull(fs.findMetadataByFilename(fileName1));"
 						+ "ssertEquals(0, fs.format(true, 512));"
@@ -111,10 +113,12 @@ public class FileSystemTest extends TestCase {
 						+ "assertNotNull(fs.findMetadataByFilename(fileName1));		"
 						+ "assertEquals(0, fs.createFile(fileName2));");
 		byte[] newfileBuffer = newfileContents.getBytes();
+		
 		// write full the disk,so there is no space to create new file
 		assertEquals(CRFileSystem.SUCCESS,
 				fs.write(0, newfileBuffer, newfileBuffer.length));
 		assertEquals(CRFileSystem.SUCCESS, fs.createFile("filename2"));
+		
 		fs.close();
 		fs.close();
 		assertEquals(CRFileSystem.NOT_FORMAT, fs.createFile("filename2"));
@@ -127,6 +131,9 @@ public class FileSystemTest extends TestCase {
 		assertEquals(CRFileSystem.FILE_EXIST, fs.createFile("filename2"));
 		// read the whole file
 		byte[] buffer = new byte[newfileBuffer.length];
+		Stat stat = new Stat();
+		fs.setStat(stat);
+		assertNotNull(fs.getFileProperty("newfile"));
 		assertEquals(CRFileSystem.SUCCESS, fs.read(0, buffer, buffer.length));
 		assertTrue(newfileContents.equals(new String(buffer)));
 		// read 6 bytes
@@ -201,7 +208,7 @@ public class FileSystemTest extends TestCase {
 		assertEquals(CRFileSystem.SUCCESS, fs.format(true, 512));
 		assertEquals(CRFileSystem.SUCCESS, fs.createFile("firstFile"));
 
-		byte[] datablockBuffer = new byte[897533];// 897536 is data block length
+		byte[] datablockBuffer = new byte[885760];// 897536 is data block length
 		for (int i = 0; i < datablockBuffer.length; i++) {
 			datablockBuffer[i] = 100;
 		}
@@ -227,8 +234,10 @@ public class FileSystemTest extends TestCase {
 	 * system and open it. 4: read something from the disk
 	 */
 	public void test_FileSystem_Format_Write_Close_Open_Read() {
+		
 		assertEquals(CRFileSystem.SUCCESS, fs.format(false, 512));
 		assertEquals(CRFileSystem.SUCCESS, fs.createFile("newfile"));
+		
 		String newfileContents = new String(
 				"assertNull(fs.findMetadataByFilename(fileName1));"
 						+ "ssertEquals(0, fs.format(true, 512));"
@@ -243,6 +252,7 @@ public class FileSystemTest extends TestCase {
 						+ "assertNotNull(fs.findMetadataByFilename(fileName1));		"
 						+ "assertEquals(0, fs.createFile(fileName2));");
 		byte[] newfileBuffer = newfileContents.getBytes();
+		
 		// write full the disk,so there is no space to create new file
 		assertEquals(CRFileSystem.SUCCESS,
 				fs.write(0, newfileBuffer, newfileBuffer.length));
@@ -255,6 +265,9 @@ public class FileSystemTest extends TestCase {
 		assertEquals(CRFileSystem.FILE_EXIST, fs.createFile("filename2"));
 		// read the whole file
 		byte[] buffer = new byte[newfileBuffer.length];
+		Stat stat = new Stat();
+		fs.setStat(stat);
+		
 		assertEquals(CRFileSystem.SUCCESS, fs.read(0, buffer, buffer.length));
 		assertTrue(newfileContents.equals(new String(buffer)));
 		// read 6 bytes
@@ -285,6 +298,9 @@ public class FileSystemTest extends TestCase {
 		fileOneBytes = new byte[fileOneContent.length()];
 		fileTwoBytes = new byte[fileTwoContent.length()];
 
+		Stat stat = new Stat();
+		fs.setStat(stat);
+		assertNotNull(fs.getFileProperty("file_One"));
 		assertEquals(CRFileSystem.SUCCESS,
 				fs.read(0, fileOneBytes, fileOneBytes.length));
 		assertEquals(CRFileSystem.SUCCESS,
@@ -317,7 +333,7 @@ public class FileSystemTest extends TestCase {
 
 		//
 		assertEquals(CRFileSystem.SUCCESS, fs.createFile("newfile"));
-		byte[] datablockBuffer = new byte[897533];// 897536 is data block length
+		byte[] datablockBuffer = new byte[885760];// 885760 is data block length
 		for (int i = 0; i < datablockBuffer.length; i++) {
 			datablockBuffer[i] = 100;
 		}

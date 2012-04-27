@@ -35,9 +35,9 @@ public class CRFile implements IFileIO {
 			if (!crfs.isExists(filename)) {
 				return null;
 			}
+			file.crfs = crfs;
 			if (file.stat(filename, stat) == 0) {
-				crfs.setStat(stat);
-				file.crfs = crfs;
+				file.stat = stat;
 				file.postion = 0;
 				return file;
 			}
@@ -49,17 +49,14 @@ public class CRFile implements IFileIO {
 					return null;
 				}
 			}
-
+			file.crfs = crfs;
 			if (file.stat(filename, stat) != 0) {
 				return null;
 			}
-			crfs.setStat(stat);
-
 			if (crfs.emptyFileContent() != 0) {
 				return null;
 			}
-
-			file.crfs = crfs;
+			file.stat = stat;
 			file.postion = 0;
 
 			return file;
@@ -69,12 +66,11 @@ public class CRFile implements IFileIO {
 					return null;
 				}
 			}
-
+			file.crfs = crfs;
 			if (file.stat(filename, stat) != 0) {
 				return null;
 			}
-			crfs.setStat(stat);
-			file.crfs = crfs;
+			file.stat = stat;
 			file.postion = file.stat.st_size;
 			return file;
 		}
@@ -181,16 +177,12 @@ public class CRFile implements IFileIO {
 		if (!isAvailableStream(this)) {
 			return (int) CRFile.EOF; // failure
 		}
+		crfs.setStat(buf);
 		Object[] fileProperty = crfs.getFileProperty(filename);
 		if (null == fileProperty) {
 			return (int) CRFile.EOF; // failure
 		}
-		buf.st_ino = ((Integer) (fileProperty[3])).intValue();
-		buf.st_mtime = ((Date) (fileProperty[2])).getTime();
-		buf.st_size = crfs.getFileLength(filename);
-		buf.st_blksize = crfs.getPreEntryLengthInDatablock();
-		buf.st_blocks = (buf.st_size % buf.st_blksize == 0) ? buf.st_size
-				/ buf.st_blksize : (buf.st_size / buf.st_blksize + 1);
+		
 		return 0; // success
 	}
 
