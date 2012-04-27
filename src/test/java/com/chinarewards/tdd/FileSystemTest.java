@@ -33,10 +33,10 @@ public class FileSystemTest extends TestCase {
 		assertEquals(885760, fs.getDataBlockLength());
 		assertEquals(148, fs.getWasteBlockLength());
 	}
-	
+
 	// case: format the disk and check the available space of disk
-	//��ʽ��������Ƿ����
-	public void test_FileSystem_AfterFormat(){
+	// ��ʽ��������Ƿ����
+	public void test_FileSystem_AfterFormat() {
 		assertEquals(CRFileSystem.SUCCESS, fs.format(false, 512));
 		assertEquals(CRFileSystem.SUCCESS, fs.createFile("newfile"));
 		String newfileContents = new String(
@@ -58,16 +58,16 @@ public class FileSystemTest extends TestCase {
 				fs.write(0, newfileBuffer, newfileBuffer.length));
 		assertEquals(CRFileSystem.SUCCESS, fs.createFile("filename2"));
 
-		assertEquals(885760-1536, fs.getAvailableSpace());
-		
+		assertEquals(885760 - 1536, fs.getAvailableSpace());
+
 		assertEquals(CRFileSystem.SUCCESS, fs.format(false, 512));
 		assertEquals(885760, fs.getAvailableSpace());
 	}
-	
+
 	/**
 	 * �½�һ���ļ���д����һ���صĴ�С���������ӵ�����Allocation Table Index
 	 */
-	public void test_FileSystem_moreThanOneDatablock(){
+	public void test_FileSystem_moreThanOneDatablock() {
 		assertEquals(CRFileSystem.SUCCESS, fs.format(false, 512));
 		assertEquals(CRFileSystem.SUCCESS, fs.createFile("newfile"));
 		String newfileContents = new String(
@@ -87,18 +87,17 @@ public class FileSystemTest extends TestCase {
 		// write full the disk,so there is no space to create new file
 		assertEquals(CRFileSystem.SUCCESS,
 				fs.write(0, newfileBuffer, newfileBuffer.length));
-		assertEquals(885760-1024, fs.getAvailableSpace());
+		assertEquals(885760 - 1024, fs.getAvailableSpace());
 	}
-	
-	
+
 	/**
 	 * open ��ִ��һ��open��fileSystemδopen��ִ��close
 	 */
-	public void test_FileSystem_open_open_close_close(){
-		
+	public void test_FileSystem_open_open_close_close() {
+
 		assertEquals(CRFileSystem.SUCCESS, fs.format(false, 512));
 		assertEquals(CRFileSystem.SUCCESS, fs.createFile("newfile"));
-		
+
 		String newfileContents = new String(
 				"assertNull(fs.findMetadataByFilename(fileName1));"
 						+ "ssertEquals(0, fs.format(true, 512));"
@@ -113,12 +112,12 @@ public class FileSystemTest extends TestCase {
 						+ "assertNotNull(fs.findMetadataByFilename(fileName1));		"
 						+ "assertEquals(0, fs.createFile(fileName2));");
 		byte[] newfileBuffer = newfileContents.getBytes();
-		
+
 		// write full the disk,so there is no space to create new file
 		assertEquals(CRFileSystem.SUCCESS,
 				fs.write(0, newfileBuffer, newfileBuffer.length));
 		assertEquals(CRFileSystem.SUCCESS, fs.createFile("filename2"));
-		
+
 		fs.close();
 		fs.close();
 		assertEquals(CRFileSystem.NOT_FORMAT, fs.createFile("filename2"));
@@ -127,7 +126,7 @@ public class FileSystemTest extends TestCase {
 
 		fs.open();
 		fs.open();
-		
+
 		assertEquals(CRFileSystem.FILE_EXIST, fs.createFile("filename2"));
 		// read the whole file
 		byte[] buffer = new byte[newfileBuffer.length];
@@ -142,7 +141,35 @@ public class FileSystemTest extends TestCase {
 		assertTrue("assert".equals(new String(buffer)));
 
 	}
-	
+
+	public void test_FileSystem_Write() {
+		
+		assertEquals(CRFileSystem.SUCCESS, fs.format(true, 512));
+		assertEquals(CRFileSystem.SUCCESS, fs.createFile("filename1"));
+		Stat stat = new Stat();
+		fs.setStat(stat);
+		fs.getFileProperty("filename1");
+		
+		String newfileContents = new String(
+				"assertNull(fs.findMetadataByFilename(fileName1));"
+						+ "ssertEquals(0, fs.format(true, 512));"
+						+ "assertNull(fs.findMetadataByFilename(fileName1));"
+						+ "		assertEquals(0, fs.createFile(fileName1));		"
+						+ "assertNotNull(fs.findMetadataByFilename(fileName1));		"
+						+ "assertEquals(0, fs.createFile(fileName2));"
+						+ "assertNull(fs.findMetadataByFilename(fileName1));"
+						+ "ssertEquals(0, fs.format(true, 512));"
+						+ "assertNull(fs.findMetadataByFilename(fileName1));"
+						+ "		assertEquals(0, fs.createFile(fileName1));		"
+						+ "assertNotNull(fs.findMetadataByFilename(fileName1));		"
+						+ "assertEquals(0, fs.createFile(fileName2));");
+		byte[] newfileBuffer = newfileContents.getBytes();
+		
+		assertEquals(newfileBuffer.length, fs.write(0, newfileBuffer, newfileBuffer.length));
+		assertEquals(newfileBuffer.length, fs.write(512, newfileBuffer, newfileBuffer.length));
+		
+	}
+
 	// case: create file before the disk format: fail
 	// case: create file after the disk format: success
 	public void test_FileSystem_CreateFile() {
@@ -234,10 +261,10 @@ public class FileSystemTest extends TestCase {
 	 * system and open it. 4: read something from the disk
 	 */
 	public void test_FileSystem_Format_Write_Close_Open_Read() {
-		
+
 		assertEquals(CRFileSystem.SUCCESS, fs.format(false, 512));
 		assertEquals(CRFileSystem.SUCCESS, fs.createFile("newfile"));
-		
+
 		String newfileContents = new String(
 				"assertNull(fs.findMetadataByFilename(fileName1));"
 						+ "ssertEquals(0, fs.format(true, 512));"
@@ -252,7 +279,7 @@ public class FileSystemTest extends TestCase {
 						+ "assertNotNull(fs.findMetadataByFilename(fileName1));		"
 						+ "assertEquals(0, fs.createFile(fileName2));");
 		byte[] newfileBuffer = newfileContents.getBytes();
-		
+
 		// write full the disk,so there is no space to create new file
 		assertEquals(CRFileSystem.SUCCESS,
 				fs.write(0, newfileBuffer, newfileBuffer.length));
@@ -267,7 +294,7 @@ public class FileSystemTest extends TestCase {
 		byte[] buffer = new byte[newfileBuffer.length];
 		Stat stat = new Stat();
 		fs.setStat(stat);
-		
+
 		assertEquals(CRFileSystem.SUCCESS, fs.read(0, buffer, buffer.length));
 		assertTrue(newfileContents.equals(new String(buffer)));
 		// read 6 bytes
@@ -276,7 +303,7 @@ public class FileSystemTest extends TestCase {
 		assertTrue("assert".equals(new String(buffer)));
 
 	}
-	
+
 	public void test_FileSystem_Write_Read() {
 
 		assertEquals(CRFileSystem.SUCCESS, fs.format(true, 512));
