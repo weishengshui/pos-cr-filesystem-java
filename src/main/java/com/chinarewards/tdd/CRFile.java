@@ -7,13 +7,20 @@ import java.util.Date;
  * @author weishengshui
  * 
  */
-public class CRFile implements IFileIO {
+public class CRFile implements IFile {
 
 	private CRFileSystem crfs = null;
 	private long postion;
 	private Stat stat = null;
+	private CRFile file = null;
 
-	public IFileIO fopen(String filename, String mode) {
+	public CRFile(CRFileSystem crfs){
+		this.crfs = crfs;
+	}
+	public CRFile(){
+		
+	}
+	public IFile fopen(String filename, String mode) {
 		if (null == mode) {
 			return null;
 		}
@@ -29,33 +36,37 @@ public class CRFile implements IFileIO {
 		if (!crfs.isFormat()) {
 			return null;
 		}
-		CRFile file = new CRFile();
+		file = new CRFile();
 		Stat stat = new Stat();
 		if ("r".equals(mode)) {
 			if (!crfs.isExists(filename)) {
 				return null;
 			}
-			file.crfs = crfs;
+			
 			if (file.stat(filename, stat) == 0) {
+				crfs.setStat(stat);
+				file.crfs = crfs;
 				file.stat = stat;
 				file.postion = 0;
 				return file;
 			}
 			return null;
 		} else if ("w".equals(mode)) {
-
 			if (!crfs.isExists(filename)) {
-				if (crfs.createFile(filename) != 0) {
+
+				if ((crfs.createFile(filename)) != 0) {
 					return null;
 				}
 			}
-			file.crfs = crfs;
-			if (file.stat(filename, stat) != 0) {
+			
+			if ((file.stat(filename, stat)) != 0) {
 				return null;
 			}
+			crfs.setStat(stat);
 			if (crfs.emptyFileContent() != 0) {
 				return null;
 			}
+			file.crfs = crfs;
 			file.stat = stat;
 			file.postion = 0;
 
@@ -66,10 +77,12 @@ public class CRFile implements IFileIO {
 					return null;
 				}
 			}
-			file.crfs = crfs;
+			
 			if (file.stat(filename, stat) != 0) {
 				return null;
 			}
+			crfs.setStat(stat);
+			file.crfs = crfs;
 			file.stat = stat;
 			file.postion = file.stat.st_size;
 			return file;
@@ -77,7 +90,7 @@ public class CRFile implements IFileIO {
 		return null;
 	}
 
-	public int fclose(IFileIO stream) {
+	public int fclose(IFile stream) {
 
 		if (isAvailableStream(stream)) {
 			stream = null;
@@ -87,7 +100,7 @@ public class CRFile implements IFileIO {
 		return (int) CRFile.EOF;//failure
 	}
 
-	public long ftell(IFileIO stream) {
+	public long ftell(IFile stream) {
 
 		if (isAvailableStream(stream)) {
 			return ((CRFile) stream).postion;
@@ -96,7 +109,7 @@ public class CRFile implements IFileIO {
 		return CRFile.EOF;
 	}
 
-	public int fseek(IFileIO stream, long offset, int origin) {
+	public int fseek(IFile stream, long offset, int origin) {
 
 		if (!isAvailableStream(stream)) {
 			return (int) CRFile.EOF;
@@ -127,12 +140,12 @@ public class CRFile implements IFileIO {
 		return (int) CRFile.EOF;
 	}
 
-	public int fflush(IFileIO stream) {
+	public int fflush(IFile stream) {
 		// TODO Auto-generated method stub
 		return 0;
 	}
 
-	public long fread(byte[] buffer, long size, long count, IFileIO stream) {
+	public long fread(byte[] buffer, long size, long count, IFile stream) {
 
 		CRFile file = (CRFile) stream;
 
@@ -154,7 +167,7 @@ public class CRFile implements IFileIO {
 		return readCount;
 	}
 
-	public long fwrite(byte[] buffer, long size, long count, IFileIO stream) {
+	public long fwrite(byte[] buffer, long size, long count, IFile stream) {
 
 		CRFile file = (CRFile) stream;
 
@@ -174,11 +187,9 @@ public class CRFile implements IFileIO {
 	}
 
 	public int stat(String filename, Stat buf) {
-		if (!isAvailableStream(this)) {
-			return (int) CRFile.EOF; // failure
-		}
+		CRFileSystem crfs = new CRFileSystem();
 		crfs.setStat(buf);
-		Object[] fileProperty = crfs.getFileProperty(filename);
+		Object[] fileProperty = crfs.setFileProperty(filename);
 		if (null == fileProperty) {
 			return (int) CRFile.EOF; // failure
 		}
@@ -186,11 +197,11 @@ public class CRFile implements IFileIO {
 		return 0; // success
 	}
 
-	private boolean isAvailableStream(IFileIO stream) {
+	private boolean isAvailableStream(IFile stream) {
 
 		CRFile file = (CRFile) stream;
 
-		if (null == file || null == file.crfs || null == file.stat) {
+		if (null == file || null == file.crfs || null == file.stat || null != file.file) {
 			return false;
 		}
 

@@ -47,6 +47,7 @@ public class CRFileSystem implements IFilesystem {
 
 	public CRFileSystem(FileBasedLowLevelIO llio) {
 		this.llio = llio;
+		initFileSystem();
 	}
 
 	public int getPreEntryLengthInDatablock() {
@@ -55,6 +56,7 @@ public class CRFileSystem implements IFilesystem {
 
 	public CRFileSystem() {
 		llio = new FileBasedLowLevelIO("E:\\fileSystem\\system.vdk");
+		initFileSystem();
 	}
 
 	public int format(boolean quick, int sizeOfEntry) {
@@ -254,9 +256,9 @@ public class CRFileSystem implements IFilesystem {
 		if (!isFormat()) {
 			return NOT_FORMAT;
 		}
-		int metadataNumber = getMetaDataNumber();
+		int metadataIndex = getMetaDataIndex();
 		int offset = headerLength + fatLength * 2;
-		offset += metadataNumber * preEntryLengthInMetaData;
+		offset += metadataIndex * preEntryLengthInMetaData;
 		byte[] buffer = new byte[preEntryLengthInMetaData];
 		int position = 0;
 		for (int i = 0; i < fileNameByte.length; i++) {
@@ -308,7 +310,7 @@ public class CRFileSystem implements IFilesystem {
 	 *         available metadata return -1
 	 * 
 	 */
-	private int getMetaDataNumber() {
+	private int getMetaDataIndex() {
 		if (isFormat()) {
 			int offset = headerLength + fatLength * 2;
 			for (int index = 0; index < nOfDataEntrys; index++) {
@@ -378,15 +380,10 @@ public class CRFileSystem implements IFilesystem {
 		}
 		if (isRightFilename(fileName)) {
 			if (isExists(fileName)) {
+				setFileProperty(fileName);
 				int metadataEntryIndex = findMetadataEntryIndexByFilename(fileName);
 				byte[] metadataEntry = findMetadataEntryByFilename(fileName);
-				byte[] startIndexBytes = new byte[preEntryLengthInFat];
-				// FIXME
-				startIndexBytes[0] = metadataEntry[preEntryLengthInMetaData - 10];
-				startIndexBytes[1] = metadataEntry[preEntryLengthInMetaData - 9];
-				int startIndexInt = ((startIndexBytes[0] & 0xff) << 8)
-						+ (startIndexBytes[1] & 0xff);
-				emptyFileContent(startIndexInt * preEntryLengthInDatablock);
+				emptyFileContent();
 				for (int i = 0; i < metadataEntry.length; i++) {
 					metadataEntry[i] = 0x00;
 				}
@@ -423,6 +420,9 @@ public class CRFileSystem implements IFilesystem {
 				|| length > buffer.length || fileOffset > dataBlockLength) {
 			return PARAM_INVALID;
 		}
+		if (!isFormat()) {
+			return NOT_FORMAT;
+		}
 		if (null == stat) {
 			return OPERATING_ERROR;
 		}
@@ -430,8 +430,15 @@ public class CRFileSystem implements IFilesystem {
 			return PARAM_INVALID;
 		}
 		int needSize = (int) ((fileOffset + length) - stat.st_size);
+		if (stat.st_size == 0) {
+			needSize -= preEntryLengthInDatablock;
+		} else {
+			needSize -= (preEntryLengthInDatablock - stat.st_size
+					% preEntryLengthInDatablock);
+		}
 		if (needSize > getAvailableSpace()) {
-			return PARAM_INVALID;
+			// return PARAM_INVALID;
+			return (int) getAvailableSpace();
 		}
 
 		long datablockOffset0 = getDatablockOffsetByFileOffset(fileOffset);
@@ -657,7 +664,10 @@ public class CRFileSystem implements IFilesystem {
 		if (fileOffset == stat.st_size) {
 			return 0;
 		}
-
+		// 没有内容可读取
+		if (stat.st_size == 0) {
+			return 0;
+		}
 		if ((length + fileOffset) > stat.st_size) {
 			length = (int) (stat.st_size - fileOffset);
 		}
@@ -832,12 +842,9 @@ public class CRFileSystem implements IFilesystem {
 		}
 	}
 
-	private int emptyFileContent(long offset) {
-		if (!isFileBegin(offset)) {
-			return PARAM_INVALID;
-		}
+	public int emptyFileContent() {
 
-		int currentIndex = (int) offset / preEntryLengthInDatablock;
+		int currentIndex = (int) stat.st_ino;
 		int nextIndex;
 
 		byte[] free = new byte[preEntryLengthInFat];
@@ -869,10 +876,6 @@ public class CRFileSystem implements IFilesystem {
 			return FAILURE;
 		}
 
-		return FAILURE;
-	}
-
-	public int emptyFileContent() {
 		return FAILURE;
 	}
 
@@ -1171,7 +1174,11 @@ public class CRFileSystem implements IFilesystem {
 		return -1;
 	}
 
-	public Object[] getFileProperty(String fileName) {
+	public Object[] setFileProperty(String fileName) {
+		if (null == stat) {
+			stat = new Stat();
+		}
+
 		byte[] metadata = findMetadataEntryByFilename(fileName);
 		if (null != metadata) {
 			String filename = byteToString(metadata, 0, 64, "ISO-8859-1");

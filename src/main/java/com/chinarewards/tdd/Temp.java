@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-public class Temp implements IFile {
+public class Temp  {
 	/**
 	 * constants
 	 */
@@ -81,14 +81,14 @@ public class Temp implements IFile {
 		crfs.close();
 	}
 
-	public int delete() {
+	public boolean delete() {
 		if (!isOpen) {
-			return FILE_CLOSED;
+			return false;
 		}
 		if (!crfs.isExists(fileName)) {
-			return FILE_NOT_EXIST;
+			return false;
 		}
-		return crfs.deleteFile(fileName);
+		return true;
 
 	}
 
@@ -96,7 +96,7 @@ public class Temp implements IFile {
 		if (!isOpen) {
 			return FILE_CLOSED;
 		}
-		return crfs.getFileLength(fileName);
+		return 0;
 	}
 
 	public Object[] getFileProperty(String fileName) {
@@ -109,7 +109,7 @@ public class Temp implements IFile {
 		if (!crfs.isExists(fileName)) {
 			return null;
 		}
-		return crfs.getFileProperty(fileName);
+		return crfs.setFileProperty(fileName);
 	}
 
 	public String[] listFiles() {
