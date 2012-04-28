@@ -169,6 +169,56 @@ public class FileSystemTest extends TestCase {
 		assertEquals(newfileBuffer.length, fs.write(512, newfileBuffer, newfileBuffer.length));
 		
 	}
+	
+	public void test_FileSystem_Write_Read() {
+		
+		assertEquals(CRFileSystem.SUCCESS, fs.format(true, 512));
+		assertEquals(CRFileSystem.SUCCESS, fs.createFile("filename1"));
+		Stat stat = new Stat();
+		fs.setStat(stat);
+		fs.getFileProperty("filename1");
+		
+		//newfileContents length : 565
+		String newfileContents = new String(
+				"assertNull(fs.findMetadataByFilename(fileName1));\n"
+						+ "ssertEquals(0, fs.format(true, 512));\n"
+						+ "assertNull(fs.findMetadataByFilename(fileName1));\n"
+						+ "		assertEquals(0, fs.createFile(fileName1));		\n"
+						+ "assertNotNull(fs.findMetadataByFilename(fileName1));		\n"
+						+ "assertEquals(0, fs.createFile(fileName2));\n"
+						+ "assertNull(fs.findMetadataByFilename(fileName1));\n"
+						+ "ssertEquals(0, fs.format(true, 512));\n"
+						+ "assertNull(fs.findMetadataByFilename(fileName1));\n"
+						+ "		assertEquals(0, fs.createFile(fileName1));		\n"
+						+ "assertNotNull(fs.findMetadataByFilename(fileName1));		\n"
+						+ "assertEquals(0, fs.createFile(fileName2));");
+		byte[] newfileBuffer = newfileContents.getBytes();
+		byte[] readBuffer = new byte[newfileContents.length()];
+		
+		//从文件开始写565个字节到文件
+		assertEquals(newfileBuffer.length, fs.write(0, newfileBuffer, newfileBuffer.length));
+		System.out.println("newfileBuffer.length:"+newfileBuffer.length);
+		//读取整个文件
+		readBuffer = new byte[newfileContents.length()];
+		assertEquals(readBuffer.length, fs.read(0, readBuffer, readBuffer.length));
+		assertNotNull(readBuffer);
+		assertTrue(newfileContents.equals(new String(readBuffer)));
+		
+		readBuffer = new byte[newfileContents.length()];
+		assertEquals(readBuffer.length-1, fs.read(1, readBuffer, readBuffer.length-1));
+		assertNotNull(readBuffer);
+		
+		readBuffer = new byte[newfileContents.length()];
+		assertEquals(52, fs.read(513, readBuffer, 52)); // FIXME
+		String readContent3 = new String(readBuffer,0,52);
+		System.out.println("\nreadContent3:"+readContent3);
+		String s1 = "ssertNull\\(";
+		String s2 = "dsdsd";
+		assertTrue(true);
+		
+		assertEquals(newfileBuffer.length, fs.write(512, newfileBuffer, newfileBuffer.length));
+
+	}
 
 	// case: create file before the disk format: fail
 	// case: create file after the disk format: success
@@ -304,39 +354,7 @@ public class FileSystemTest extends TestCase {
 
 	}
 
-	public void test_FileSystem_Write_Read() {
 
-		assertEquals(CRFileSystem.SUCCESS, fs.format(true, 512));
-		assertEquals(CRFileSystem.SUCCESS, fs.createFile("file_One"));
-		assertEquals(CRFileSystem.SUCCESS, fs.createFile("file_Two"));
-		String fileOneContent = "This is the first file.";
-		String fileTwoContent = "This is the second file.";
-		byte[] fileOneBytes = fileOneContent.getBytes();
-		byte[] fileTwoBytes = fileTwoContent.getBytes();
-
-		assertEquals(CRFileSystem.SUCCESS,
-				fs.write(0, fileOneBytes, fileOneBytes.length));
-		assertEquals(CRFileSystem.SUCCESS,
-				fs.write(512, fileTwoBytes, fileTwoBytes.length));
-
-		assertEquals(CRFileSystem.SUCCESS,
-				fs.write(512, fileTwoBytes, fileTwoBytes.length));
-
-		fileOneBytes = new byte[fileOneContent.length()];
-		fileTwoBytes = new byte[fileTwoContent.length()];
-
-		Stat stat = new Stat();
-		fs.setStat(stat);
-		assertNotNull(fs.getFileProperty("file_One"));
-		assertEquals(CRFileSystem.SUCCESS,
-				fs.read(0, fileOneBytes, fileOneBytes.length));
-		assertEquals(CRFileSystem.SUCCESS,
-				fs.read(512, fileTwoBytes, fileTwoBytes.length));
-
-		assertTrue(fileOneContent.equals(new String(fileOneBytes)));
-		assertTrue(fileTwoContent.equals(new String(fileTwoBytes)));
-
-	}
 
 	/**
 	 * 
