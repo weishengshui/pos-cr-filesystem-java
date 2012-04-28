@@ -143,13 +143,13 @@ public class FileSystemTest extends TestCase {
 	}
 
 	public void test_FileSystem_Write() {
-		
+
 		assertEquals(CRFileSystem.SUCCESS, fs.format(true, 512));
 		assertEquals(CRFileSystem.SUCCESS, fs.createFile("filename1"));
 		Stat stat = new Stat();
 		fs.setStat(stat);
 		fs.getFileProperty("filename1");
-		
+
 		String newfileContents = new String(
 				"assertNull(fs.findMetadataByFilename(fileName1));"
 						+ "ssertEquals(0, fs.format(true, 512));"
@@ -164,21 +164,23 @@ public class FileSystemTest extends TestCase {
 						+ "assertNotNull(fs.findMetadataByFilename(fileName1));		"
 						+ "assertEquals(0, fs.createFile(fileName2));");
 		byte[] newfileBuffer = newfileContents.getBytes();
-		
-		assertEquals(newfileBuffer.length, fs.write(0, newfileBuffer, newfileBuffer.length));
-		assertEquals(newfileBuffer.length, fs.write(512, newfileBuffer, newfileBuffer.length));
-		
+
+		assertEquals(newfileBuffer.length,
+				fs.write(0, newfileBuffer, newfileBuffer.length));
+		assertEquals(newfileBuffer.length,
+				fs.write(512, newfileBuffer, newfileBuffer.length));
+
 	}
-	
+
 	public void test_FileSystem_Write_Read() {
-		
+
 		assertEquals(CRFileSystem.SUCCESS, fs.format(true, 512));
 		assertEquals(CRFileSystem.SUCCESS, fs.createFile("filename1"));
 		Stat stat = new Stat();
 		fs.setStat(stat);
 		fs.getFileProperty("filename1");
-		
-		//newfileContents length : 565
+
+		// newfileContents length : 565
 		String newfileContents = new String(
 				"assertNull(fs.findMetadataByFilename(fileName1));\n"
 						+ "ssertEquals(0, fs.format(true, 512));\n"
@@ -192,32 +194,247 @@ public class FileSystemTest extends TestCase {
 						+ "		assertEquals(0, fs.createFile(fileName1));		\n"
 						+ "assertNotNull(fs.findMetadataByFilename(fileName1));		\n"
 						+ "assertEquals(0, fs.createFile(fileName2));");
+
 		byte[] newfileBuffer = newfileContents.getBytes();
 		byte[] readBuffer = new byte[newfileContents.length()];
-		
-		//从文件开始写565个字节到文件
-		assertEquals(newfileBuffer.length, fs.write(0, newfileBuffer, newfileBuffer.length));
-		System.out.println("newfileBuffer.length:"+newfileBuffer.length);
-		//读取整个文件
-		readBuffer = new byte[newfileContents.length()];
-		assertEquals(readBuffer.length, fs.read(0, readBuffer, readBuffer.length));
-		assertNotNull(readBuffer);
-		assertTrue(newfileContents.equals(new String(readBuffer)));
-		
-		readBuffer = new byte[newfileContents.length()];
-		assertEquals(readBuffer.length-1, fs.read(1, readBuffer, readBuffer.length-1));
-		assertNotNull(readBuffer);
-		
-		readBuffer = new byte[newfileContents.length()];
-		assertEquals(52, fs.read(513, readBuffer, 52)); // FIXME
-		String readContent3 = new String(readBuffer,0,52);
-		System.out.println("\nreadContent3:"+readContent3);
-		String s1 = "ssertNull\\(";
-		String s2 = "dsdsd";
-		assertTrue(true);
-		
-		assertEquals(newfileBuffer.length, fs.write(512, newfileBuffer, newfileBuffer.length));
 
+		// totalFileLength=565;fileOffset = 0, length = 565；分配两个fat索引
+		assertEquals(newfileBuffer.length,
+				fs.write(0, newfileBuffer, newfileBuffer.length));
+
+		// *** ***
+		// totalFileLength=565;fileOffset = 0, length = 565
+		readBuffer = new byte[newfileContents.length()];
+		assertEquals(readBuffer.length,
+				fs.read(0, readBuffer, readBuffer.length));
+		assertTrue(newfileContents.equals(new String(readBuffer)));
+
+		// 0** ***
+		// totalFileLength=565;fileOffset = 1, length = 564
+		readBuffer = new byte[newfileContents.length() - 1];
+		assertEquals(readBuffer.length,
+				fs.read(1, readBuffer, readBuffer.length));
+		assertTrue(newfileContents.substring(1).equals(
+				new String(readBuffer, 0, newfileContents.length() - 1)));
+
+		// 000 00*
+		// totalFileLength=565; fileOffset = 555, length = 10
+		readBuffer = new byte[10];
+		assertEquals(10, fs.read(555, readBuffer, 10));
+		assertTrue(newfileContents.substring(555, 565).equals(
+				(new String(readBuffer, 0, 10))));
+
+		// 000 00*
+		// totalFileLength=565; fileOffset = 555, length = 11
+		readBuffer = new byte[11];
+		assertEquals(10, fs.read(555, readBuffer, 11));
+		assertTrue(newfileContents.substring(555, 565).equals(
+				(new String(readBuffer, 0, 10))));
+
+		// 000 0*0
+		// totalFileLength=565; fileOffset = 554, length = 10
+		readBuffer = new byte[10];
+		assertEquals(10, fs.read(554, readBuffer, 10));
+		assertTrue(newfileContents.substring(554, 564).equals(
+				(new String(readBuffer, 0, 10))));
+
+		// 000 ***
+		// totalFileLength=565; fileOffset = 512, length = 53
+		readBuffer = new byte[53];
+		assertEquals(53, fs.read(512, readBuffer, 53));
+		assertTrue(newfileContents.substring(512, 565).equals(
+				(new String(readBuffer, 0, 53))));
+
+		// 00* ***
+		// totalFileLength=565; fileOffset = 511, length = 54
+		readBuffer = new byte[54];
+		assertEquals(54, fs.read(511, readBuffer, 54));
+		assertTrue(newfileContents.substring(511, 565).equals(
+				(new String(readBuffer, 0, 54))));
+
+		// 00* **0
+		// totalFileLength=565; fileOffset = 511, length = 53
+		readBuffer = new byte[53];
+		assertEquals(53, fs.read(511, readBuffer, 53));
+		assertTrue(newfileContents.substring(511, 564).equals(
+				(new String(readBuffer, 0, 53))));
+
+		// 00* 000
+		// totalFileLength=565; fileOffset = 511, length = 1
+		readBuffer = new byte[1];
+		assertEquals(1, fs.read(511, readBuffer, 1));
+		assertTrue(newfileContents.substring(511, 512).equals(
+				(new String(readBuffer, 0, 1))));
+
+		// 0*0 000
+		// totalFileLength=565; fileOffset = 501, length = 10
+		readBuffer = new byte[10];
+		assertEquals(10, fs.read(501, readBuffer, 10));
+		assertTrue(newfileContents.substring(501, 511).equals(
+				(new String(readBuffer, 0, 10))));
+
+		// *00 000
+		// totalFileLength=565; fileOffset = 0, length = 10
+		readBuffer = new byte[10];
+		assertEquals(10, fs.read(0, readBuffer, 10));
+		assertTrue(newfileContents.substring(0, 10).equals(
+				(new String(readBuffer, 0, 10))));
+
+		// *00 000
+		// totalFileLength=565; fileOffset = 0, length = 512
+		readBuffer = new byte[512];
+		assertEquals(512, fs.read(0, readBuffer, 512));
+		assertTrue(newfileContents.substring(0, 512).equals(
+				(new String(readBuffer, 0, 512))));
+
+		// *****************************************************************************************************************
+		// test after second write
+		// after write, the file length is 1077, 文件占有3个fat index
+		assertEquals(newfileBuffer.length,
+				fs.write(512, newfileBuffer, newfileBuffer.length));
+
+		// after second write ,the file content is fileContent
+		String fileContent = newfileContents.substring(0, 512)
+				+ newfileContents;
+
+		// *** *** ***
+		// totalFileLength=1077;fileOffset = 0, length = 1077
+		readBuffer = new byte[fileContent.length()];
+		assertEquals(readBuffer.length,
+				fs.read(0, readBuffer, readBuffer.length));
+		assertTrue(fileContent.equals(new String(readBuffer))); // FIXME
+
+		// *** 000 000
+		// totalFileLength=1077;fileOffset = 0, length = 512
+		readBuffer = new byte[512];
+		assertEquals(readBuffer.length,
+				fs.read(0, readBuffer, readBuffer.length));
+		assertTrue(fileContent.substring(0, 512).equals(new String(readBuffer)));
+
+		// 0** *** ***
+		// totalFileLength=1077;fileOffset = 1, length = 1076
+		readBuffer = new byte[1076];
+		assertEquals(readBuffer.length,
+				fs.read(1, readBuffer, readBuffer.length));
+		assertTrue(fileContent.substring(1).equals(new String(readBuffer)));
+
+		// 000 00* ***
+		// totalFileLength=1077; fileOffset = 555, length = 522
+		readBuffer = new byte[522];
+		assertEquals(522, fs.read(555, readBuffer, 522));
+		assertTrue(fileContent.substring(555, 1077).equals(
+				(new String(readBuffer))));
+
+		// 000 00* ***
+		// totalFileLength=1077; fileOffset = 555, length = 523, but the real
+		// read length is 522
+		readBuffer = new byte[523];
+		assertEquals(522, fs.read(555, readBuffer, 523));
+		assertTrue(fileContent.substring(555, 1077).equals(
+				(new String(readBuffer, 0, 522))));
+
+		// 000 000 0*0
+		// totalFileLength=1077; fileOffset = 1030, length = 10
+		readBuffer = new byte[10];
+		assertEquals(10, fs.read(1030, readBuffer, 10));
+		assertTrue(fileContent.substring(1030, 1040).equals(
+				(new String(readBuffer))));
+
+		// 000 000 ***
+		// totalFileLength=1077; fileOffset = 1024, length = 53
+		readBuffer = new byte[53];
+		assertEquals(53, fs.read(1024, readBuffer, 53));
+		assertTrue(fileContent.substring(1024, 1077).equals(
+				(new String(readBuffer, 0, 53))));
+
+		// 00* *** ***
+		// totalFileLength=1077; fileOffset = 511, length = 566
+		readBuffer = new byte[566];
+		assertEquals(566, fs.read(511, readBuffer, 566));
+		assertTrue(fileContent.substring(511, 1077).equals(
+				(new String(readBuffer))));
+
+		// 00* *** **0
+		// totalFileLength=1077; fileOffset = 511, length = 520
+		readBuffer = new byte[520];
+		assertEquals(520, fs.read(511, readBuffer, 520));
+		assertTrue(fileContent.substring(511, 1031).equals(
+				(new String(readBuffer))));
+
+		// 000 0*0 000
+		// totalFileLength=1077; fileOffset = 513, length = 200
+		readBuffer = new byte[200];
+		assertEquals(200, fs.read(513, readBuffer, 200));
+		assertTrue(fileContent.substring(513, 713).equals(
+				(new String(readBuffer))));
+
+		// 000 000 0*0
+		// totalFileLength=1077; fileOffset = 1025, length = 30
+		readBuffer = new byte[30];
+		assertEquals(30, fs.read(1025, readBuffer, 30));
+		assertTrue(fileContent.substring(1025, 1055).equals(
+				(new String(readBuffer))));
+
+		// 000 000 ***
+		// totalFileLength=1077; fileOffset = 1024, length = 53
+		readBuffer = new byte[53];
+		assertEquals(53, fs.read(1024, readBuffer, 53));
+		assertTrue(fileContent.substring(1024, 1077).equals(
+				(new String(readBuffer))));
+
+		// *** 000 000
+		// totalFileLength=1077; fileOffset = 0, length = 512
+		readBuffer = new byte[512];
+		assertEquals(512, fs.read(0, readBuffer, 512));
+		assertTrue(fileContent.substring(0, 512).equals(
+				(new String(readBuffer, 0, 512))));
+
+		// ***************************************************************************************************************************
+		// write the file in different offset
+
+		// (000 000 00)* *** ***，文件占有5个fat index
+		readBuffer = new byte[fileContent.length()];
+		newfileBuffer = fileContent.getBytes();
+
+		assertEquals(fileContent.length(),
+				fs.write(1077, newfileBuffer, newfileBuffer.length));
+		assertEquals(fileContent.length(),
+				fs.read(1077, readBuffer, readBuffer.length));
+		assertTrue(fileContent.equals(new String(readBuffer)));
+
+		// (000 000 0*)* *** ***，文件占有5个fat index
+		readBuffer = new byte[fileContent.length()];
+		newfileBuffer = fileContent.getBytes();
+
+		assertEquals(fileContent.length(),
+				fs.write(1076, newfileBuffer, newfileBuffer.length));
+		assertEquals(fileContent.length(),
+				fs.read(1076, readBuffer, readBuffer.length));
+		assertTrue(fileContent.equals(new String(readBuffer)));
+
+		// (*** *** **)，文件占有3个fat index
+		readBuffer = new byte[fileContent.length()];
+		newfileBuffer = fileContent.getBytes();
+
+		assertEquals(fileContent.length(),
+				fs.write(0, newfileBuffer, newfileBuffer.length));
+		assertEquals(fileContent.length(),
+				fs.read(0, readBuffer, readBuffer.length));
+		assertTrue(fileContent.equals(new String(readBuffer)));
+
+		// (000 *** ***) **，文件占有4个fat index
+		readBuffer = new byte[fileContent.length()];
+		newfileBuffer = fileContent.getBytes();
+
+		assertEquals(fileContent.length(),
+				fs.write(512, newfileBuffer, newfileBuffer.length));
+		assertEquals(fileContent.length(),
+				fs.read(512, readBuffer, readBuffer.length));
+		assertTrue(fileContent.equals(new String(readBuffer)));
+		// 读取文件的前半部分，判断是否被写的动作破坏
+		readBuffer = new byte[512];
+		assertEquals(512, fs.read(0, readBuffer, readBuffer.length));
+		assertTrue(fileContent.substring(0, 512).equals(new String(readBuffer)));
 	}
 
 	// case: create file before the disk format: fail
@@ -353,8 +570,6 @@ public class FileSystemTest extends TestCase {
 		assertTrue("assert".equals(new String(buffer)));
 
 	}
-
-
 
 	/**
 	 * 
