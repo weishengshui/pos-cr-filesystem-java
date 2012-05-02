@@ -35,20 +35,23 @@ public class CRFileTest extends TestCase {
 		// open after the disk format with "r" mode, but the file is not exists
 		assertEquals(0, fs.format(true, 512));
 
+		// 以读的方式打开一个不存在的文件，得到一个null对象
 		fileObject1 = (CRFile) file.fopen("file1", "r");
 		assertNull(fileObject1);
 
+		// 以写的方式打开一个不存在的文件，创建这个文件，获得一个文件对象
 		fileObject1 = (CRFile) file.fopen("file1", "w");
 		assertNotNull(fileObject1);
 
+		// 以追加的方式打开一个文件，获得一个文件对象
 		fileObject1 = (CRFile) file.fopen("file1", "a");
 		assertNotNull(fileObject1);
-
+		// 以读的方式打开一个存在的文件，得到一个文件对象
 		fileObject1 = (CRFile) file.fopen("file1", "r");
 		assertNotNull(fileObject1);
 	}
 
-	public void test_File_Stat() {
+	public void test_File_Stat_OK() {
 		// format the disk and create a file object
 		assertEquals(0, fs.format(true, 512));
 		CRFile fileObject1 = (CRFile) file.fopen("file1", "w");
@@ -90,6 +93,85 @@ public class CRFileTest extends TestCase {
 		assertEquals(512, stat.st_blksize);
 		assertEquals(1, stat.st_blocks);
 		System.out.println(dateFormat.format(new Date(stat.st_mtime)));
+	}
 
+	public void test_File_Fwrite_Fseek_Fread() {
+		// format the disk and create a file object
+		assertEquals(0, fs.format(true, 512));
+		CRFile fileObject1 = (CRFile) file.fopen("file1", "w");
+		assertNotNull(fileObject1);
+		// 查看文件位置指针
+		assertEquals(0, file.ftell(fileObject1));
+
+		// 往空文件中写入一段内容
+		String fileContents = "First time to write the file";
+		byte[] contentBytes = fileContents.getBytes();
+		assertEquals(contentBytes.length,
+				file.fwrite(contentBytes, 1, contentBytes.length, fileObject1));
+		// 查看文件位置指针
+		assertEquals(contentBytes.length, file.ftell(fileObject1));
+
+		// 将文件位置指针移至文件开始
+		assertEquals(0, file.fseek(fileObject1, 0, (int) CRFile.SEEK_SET));
+		// 查看文件位置指针
+		assertEquals(0, file.ftell(fileObject1));
+		contentBytes = new byte[fileContents.length()];
+		// 读取文件，读取长度为文件的总长度，并对内容进行比较
+		assertEquals(contentBytes.length,
+				file.fread(contentBytes, 1, contentBytes.length, fileObject1));
+		assertTrue(fileContents.equals(new String(contentBytes)));
+		// 查看文件位置指针
+		assertEquals(contentBytes.length, file.ftell(fileObject1));
+		// 关闭文件对象
+		assertEquals(0, file.fclose(fileObject1));
+
+		// 已追加的方式打开文件
+		fileObject1 = (CRFile) file.fopen("file1", "a");
+		assertNotNull(fileObject1);
+		// 查看文件位置指针
+		assertEquals(contentBytes.length, file.ftell(fileObject1));
+
+		// 第二次向文件写入内容
+		contentBytes = fileContents.getBytes();
+		assertEquals(contentBytes.length,
+				file.fwrite(contentBytes, 1, contentBytes.length, fileObject1));
+		// 查看文件位置指针
+		assertEquals(contentBytes.length * 2, file.ftell(fileObject1));
+		// 读取文件，读取长度为文件的总长度，并对内容进行比较
+		assertEquals(0, file.fseek(fileObject1, 0, (int) CRFile.SEEK_SET));
+		// 查看文件位置指针
+		assertEquals(0, file.ftell(fileObject1));
+		contentBytes = new byte[fileContents.length() * 2];
+		assertEquals(contentBytes.length,
+				file.fread(contentBytes, 1, contentBytes.length, fileObject1));
+		// 查看文件位置指针
+		assertEquals(contentBytes.length, file.ftell(fileObject1));
+		assertTrue((fileContents + fileContents)
+				.equals(new String(contentBytes)));
+
+	}
+
+	// 写一个文件，长度超过一个簇
+	public void test_File_Fwrite_MoreThanOneDatablockEntry() {
+		// format the disk and create a file object
+		assertEquals(0, fs.format(true, 512));
+		CRFile fileObject1 = (CRFile) file.fopen("file1", "w");
+		assertNotNull(fileObject1);
+		// 查看文件位置指针
+		assertEquals(0, file.ftell(fileObject1));
+		String fileContents = "/2/12 1:33:44 PM CST: Eclipse is running in a JRE, but a JDK is required"
+				+ "Some Maven plugins may not work when importing projects or updating source folders."
+				+ "5/2/12 1:33:47 PM CST: Updating index central|http://repo1.maven.org/maven2"
+				+ "5/2/12 1:33:51 PM CST: Downloading d9d714e11cb097b3ffcec91cccc65d3e : nexus-maven-repository-index.properties"
+				+ "5/2/12 1:33:51 PM CST: Downloaded Repository[d9d714e11cb097b3ffcec91cccc65d3e|http://repo1.maven.org/maven2/.index]/nexus-maven-repository-index.properties"
+				+ "5/2/12 1:35:27 PM CST: Unable to download Repository[d9d714e11cb097b3ffcec91cccc65d3e|http://repo1.maven.org/maven2/.index]/nexus-maven-repository-index.gz: java.io.IOException: The server did not respond within the configured timeout."
+				+ "5/2/12 1:35:27 PM CST: Unable to update index for central|http://repo1.maven.org/maven2"
+				+ "5/2/12 1:47:47 PM CST: Maven Builder: AUTO_BUILD"
+				+ "5/2/12 1:51:33 PM CST: Maven Builder: AUTO_BUILD"
+				+ "5/2/12 1:54:57 PM CST: Maven Builder: AUTO_BUILD ";
+		assertEquals(961,fileContents.length());
+		byte[] buffer = fileContents.getBytes();
+		assertEquals(961,file.fwrite(buffer, 1, buffer.length, fileObject1));
+		//assertEquals(961, file.ftell(fileObject1));
 	}
 }

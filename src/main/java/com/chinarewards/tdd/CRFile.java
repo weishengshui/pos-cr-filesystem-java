@@ -93,7 +93,7 @@ public class CRFile implements IFile {
 	public int fclose(IFile stream) {
 
 		if (isAvailableStream(stream)) {
-			stream = null;
+			stream=null;
 			return 0; // success
 		}
 
