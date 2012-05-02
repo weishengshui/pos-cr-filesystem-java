@@ -145,4 +145,14 @@ public interface IFileIO {
 	 */
 	int stat(final String filename, Stat buf);
 	
+	
+	/**
+	 * description：Deletes the file identified by character string pointed to by fname. 
+	 * @param pathname	- 	pointer to a null-terminated string containing the path identifying the file to delete 
+	 * @return	0 upon success or non-zero value on error. 
+	 * @time 2012-5-2   下午01:52:24
+	 * @author Seek
+	 */
+	int remove(final String pathname);
+	
 }
