@@ -1,6 +1,6 @@
 package com.chinarewards.tdd;
 
-public interface IFile {
+public interface IFileIO {
 	
 	/**
 	    Constants
@@ -21,7 +21,7 @@ public interface IFile {
 	 */
 	public static final long EOF = -1;
 	public static final long BUFSIZ = 512;
-	public static final long FILENAME_MAX = 64;
+	public static final long FILENAME_MAX = 260;
 	public static final long FOPEN_MAX = 20;
 	public static final long _IOFBF = 0x0000;
 	public static final long _IOLBF = 0x0040;
@@ -51,7 +51,7 @@ public interface IFile {
 	 * @time 2012-4-25   上午11:25:11
 	 * @author Seek
 	 */
-	IFile fopen(final String filename, final String mode);
+	IFileIO fopen(final String filename, final String mode);
 	
 	/**
 	 * description：Closes the given file stream. Any unwritten buffered data are
@@ -61,11 +61,11 @@ public interface IFile {
 	 * disassociated and deallocated if automatic allocation was used.
 	 * 
 	 * @param stream  - the file stream to close
-	 * @return value  0�?on success, EOF otherwise 
+	 * @return value  0​ on success, EOF otherwise 
 	 * @time 2012-4-25 上午11:31:20
 	 * @author Seek
 	 */
-	int fclose(IFile stream);
+	int fclose(IFileIO stream);
 	
 	/**
 	 * description：Returns the file position indicator for the file stream stream. 
@@ -74,7 +74,7 @@ public interface IFile {
 	 * @time 2012-4-25   上午11:39:15
 	 * @author Seek
 	 */
-	long ftell(IFile stream);
+	long ftell(IFileIO stream);
 
 	/**
 	 * description：Sets the file position indicator for the file stream stream
@@ -85,13 +85,13 @@ public interface IFile {
 	 * @param stream 	- 	file stream to modify 
 	 * @param offset 	- 	number of characters to shift the position relative to origin 
 	 * @param origin 	- 	position to which offset is added. It can have one of the following values: SEEK_SET, SEEK_CUR, SEEK_END
-	 * @return 0�?upon success, nonzero value otherwise. Associated EOF flag is cleared for the stream and the effect of any ungetc is undone. 
-	 * @notes For text streams, the only valid values of offset are �?�?(applicable to any origin) and a value 
+	 * @return 0​ upon success, nonzero value otherwise. Associated EOF flag is cleared for the stream and the effect of any ungetc is undone. 
+	 * @notes For text streams, the only valid values of offset are ​0​ (applicable to any origin) and a value 
 	 * 		  returned by an earlier call to ftell (only applicable to SEEK_SET). 
 	 * @time 2012-4-25 上午11:52:50
 	 * @author Seek
 	 */
-	int fseek(IFile stream, long offset, int origin);
+	int fseek(IFileIO stream, long offset, int origin);
 	
 	/**
 	 * description：Causes the output file stream to be synchronized with the actual contents of the file. 
@@ -101,7 +101,7 @@ public interface IFile {
 	 * @time 2012-4-25   上午11:57:56
 	 * @author Seek
 	 */
-	int fflush(IFile stream);
+	int fflush(IFileIO stream);
 	
 	/**
 	 * description：Reads specified number of objects in the array buffer from the given input stream stream. 
@@ -114,7 +114,7 @@ public interface IFile {
 	 * @time 2012-4-25   下午12:02:09
 	 * @author Seek
 	 */
-	long fread(byte[] buffer, long size, long count, IFile stream);
+	long fread(byte[] buffer, long size, long count, IFileIO stream);
 	
 	/**
 	 * description：Writes count of objects in the given array buffer to the output stream stream. 
@@ -127,7 +127,7 @@ public interface IFile {
 	 * @time 2012-4-25   下午12:04:48
 	 * @author Seek
 	 */
-	long fwrite(final byte[] buffer, long size, long count, IFile stream);
+	long fwrite(final byte[] buffer, long size, long count, IFileIO stream);
 	
 	/**
 	 * description：The stat function returns information about the attributes of
@@ -144,6 +144,7 @@ public interface IFile {
 	 * @author Seek
 	 */
 	int stat(final String filename, Stat buf);
+	
 	
 	/**
 	 * description：Deletes the file identified by character string pointed to by fname. 

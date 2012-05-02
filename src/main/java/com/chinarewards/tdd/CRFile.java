@@ -207,4 +207,10 @@ public class CRFile implements IFile {
 
 		return true;
 	}
+	public int remove(String pathname) {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+	
+	
 }
