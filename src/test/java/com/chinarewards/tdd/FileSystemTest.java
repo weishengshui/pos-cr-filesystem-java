@@ -635,13 +635,19 @@ public class FileSystemTest extends TestCase {
 		assertEquals(CRFileSystem.FILE_NOT_EXIST, fs.deleteFile("newfile"));
 
 		assertEquals(CRFileSystem.SUCCESS, fs.createFile("newfile"));
+		assertEquals(885760-512,fs.getAvailableSpace());
 		assertEquals(CRFileSystem.SUCCESS, fs.createFile("newfile2"));
+		assertEquals(885760-1024,fs.getAvailableSpace());
 		assertEquals(CRFileSystem.SUCCESS, fs.createFile("newfile3"));
-
+		assertEquals(885760-1536,fs.getAvailableSpace());
+		
 		assertEquals(CRFileSystem.SUCCESS, fs.deleteFile("newfile"));
+		assertEquals(885760-1024,fs.getAvailableSpace());
 		assertEquals(CRFileSystem.SUCCESS, fs.deleteFile("newfile2"));
+		assertEquals(885760-512,fs.getAvailableSpace());
 		assertEquals(CRFileSystem.SUCCESS, fs.deleteFile("newfile3"));
-
+		assertEquals(885760,fs.getAvailableSpace());
+		
 		assertEquals(CRFileSystem.FILE_NOT_EXIST, fs.deleteFile("newfile"));
 		assertEquals(CRFileSystem.FILE_NOT_EXIST, fs.deleteFile("newfile2"));
 
@@ -653,6 +659,7 @@ public class FileSystemTest extends TestCase {
 			datablockBuffer[i] = 100;
 		}
 		assertEquals(datablockBuffer.length, fs.write(0, datablockBuffer, datablockBuffer.length));
+		assertEquals(0,fs.getAvailableSpace());
 		assertEquals(CRFileSystem.DISK_FULL, fs.createFile("newfile2"));
 
 		assertEquals(CRFileSystem.SUCCESS, fs.deleteFile("newfile"));

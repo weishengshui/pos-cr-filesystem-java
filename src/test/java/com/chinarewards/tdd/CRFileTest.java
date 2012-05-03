@@ -54,6 +54,7 @@ public class CRFileTest extends TestCase {
 	public void test_File_Stat_OK() {
 		// format the disk and create a file object
 		assertEquals(0, fs.format(true, 512));
+		//创建第一个文件
 		CRFile fileObject1 = (CRFile) file.fopen("file1", "w");
 		assertNotNull(fileObject1);
 
@@ -73,6 +74,7 @@ public class CRFileTest extends TestCase {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
+		//创建第二个文件
 		fileObject1 = (CRFile) file.fopen("file2", "w");
 		assertNotNull(fileObject1);
 
@@ -80,7 +82,7 @@ public class CRFileTest extends TestCase {
 		stat = new Stat();
 		assertEquals(0, file.stat("file2", stat));
 		assertEquals(0, stat.st_size);
-		assertEquals(0, stat.st_ino);
+		assertEquals(1, stat.st_ino);
 		assertEquals(512, stat.st_blksize);
 		assertEquals(1, stat.st_blocks);
 		System.out.println(dateFormat.format(new Date(stat.st_mtime)));
@@ -169,9 +171,23 @@ public class CRFileTest extends TestCase {
 				+ "5/2/12 1:47:47 PM CST: Maven Builder: AUTO_BUILD"
 				+ "5/2/12 1:51:33 PM CST: Maven Builder: AUTO_BUILD"
 				+ "5/2/12 1:54:57 PM CST: Maven Builder: AUTO_BUILD ";
-		assertEquals(961,fileContents.length());
+		assertEquals(961, fileContents.length());
 		byte[] buffer = fileContents.getBytes();
-		assertEquals(961,file.fwrite(buffer, 1, buffer.length, fileObject1));
-		//assertEquals(961, file.ftell(fileObject1));
+
+		// 将961字节的内容写入文件
+		assertEquals(961, file.fwrite(buffer, 1, buffer.length, fileObject1));
+		// 查看文件位置指针
+		assertEquals(961, file.ftell(fileObject1));
+
+		assertEquals(0, file.fseek(fileObject1, 0, (int) CRFile.SEEK_SET));
+		// 查看文件位置指针
+		assertEquals(0, file.ftell(fileObject1));
+		buffer = new byte[fileContents.length()];
+		// 读取文件内容
+		assertEquals(961, file.fread(buffer, 1, buffer.length, fileObject1));
+		assertTrue(fileContents.equals(new String(buffer)));
+		// 查看文件位置指针
+		assertEquals(961, file.ftell(fileObject1));
+
 	}
 }

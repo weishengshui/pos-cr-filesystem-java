@@ -333,6 +333,8 @@ public class CRFileSystem implements IFilesystem {
 		for (int index = 0; index < nOfDataEntrys; index++) {
 			if (fatBitMap[index] == 0) {
 				fatCount++;
+			} else {
+				System.out.println("fatBitMap[index] == 1:" + index);
 			}
 		}
 		availeableSpace = fatCount * preEntryLengthInDatablock;
@@ -382,16 +384,33 @@ public class CRFileSystem implements IFilesystem {
 			if (isExists(fileName)) {
 				setFileProperty(fileName);
 				int metadataEntryIndex = findMetadataEntryIndexByFilename(fileName);
-				byte[] metadataEntry = findMetadataEntryByFilename(fileName);
-				emptyFileContent();
+				byte[] metadataEntry = new byte[preEntryLengthInMetaData];
+				if (emptyFileContent() != 0) {
+					return FAILURE;
+				}
+				System.out
+						.println("deleteFile(String fileName) metadataEntryIndex:"
+								+ metadataEntryIndex);
+				byte[] free = new byte[preEntryLengthInFat];
+				for (int i = 0; i < free.length; i++) {
+					free[i] = (byte) 0xfe;
+				}
 				for (int i = 0; i < metadataEntry.length; i++) {
 					metadataEntry[i] = 0x00;
 				}
-				if (llio.write(headerLength + fatLength * 2
-						+ metadataEntryIndex * preEntryLengthInMetaData,
-						metadataEntry, metadataEntry.length) != 0) {
+				System.out.println("deleteFile(String fileName) stat.st_ino:"
+						+ stat.st_ino);
+				if ((writeEntryInFat((int) stat.st_ino, free) != 0)
+						|| (llio.write(
+								headerLength + fatLength * 2
+										+ metadataEntryIndex
+										* preEntryLengthInMetaData,
+								metadataEntry, metadataEntry.length) != 0)) {
 					return IO_WRONG;
 				}
+				System.out
+						.println("deleteFile(String fileName) getAvailableSpace():"
+								+ getAvailableSpace());
 				return SUCCESS;
 			} else {
 				return FILE_NOT_EXIST;
@@ -419,6 +438,7 @@ public class CRFileSystem implements IFilesystem {
 		if (fileOffset < 0 || null == buffer || length < 1
 				|| length > buffer.length || fileOffset > dataBlockLength) {
 			return PARAM_INVALID;
+
 		}
 		if (!isFormat()) {
 			return NOT_FORMAT;
@@ -430,15 +450,18 @@ public class CRFileSystem implements IFilesystem {
 			return PARAM_INVALID;
 		}
 		int needSize = (int) ((fileOffset + length) - stat.st_size);
+		System.out.println("stat.st_size:" + stat.st_size);
 		if (stat.st_size == 0) {
 			needSize -= preEntryLengthInDatablock;
 		} else {
 			needSize -= (preEntryLengthInDatablock - stat.st_size
 					% preEntryLengthInDatablock);
 		}
+		System.out.println("getAvailableSpace():" + getAvailableSpace());
+		System.out.println("needSize:" + needSize);
 		if (needSize > getAvailableSpace()) {
 			// return PARAM_INVALID;
-			return (int) getAvailableSpace();
+			return -100;
 		}
 
 		long datablockOffset0 = getDatablockOffsetByFileOffset(fileOffset);
@@ -462,7 +485,7 @@ public class CRFileSystem implements IFilesystem {
 		int alreadyWriteLength = 0;
 		byte[] onceWriteBuffer;
 		byte[] fatEntryBuf = new byte[preEntryLengthInFat];
-		byte[] EOF = new byte[2];
+		byte[] EOF = new byte[preEntryLengthInFat];
 		EOF[0] = (byte) 0xff;
 		EOF[1] = (byte) 0xff;
 
@@ -581,6 +604,7 @@ public class CRFileSystem implements IFilesystem {
 				} else {
 					int restLength;
 					int onceWriteLength;
+
 					restLength = (int) (preEntryLengthInDatablock - fileOffset
 							% preEntryLengthInDatablock);
 					if (restLength >= (length - alreadyWriteLength)) {
@@ -588,6 +612,9 @@ public class CRFileSystem implements IFilesystem {
 					} else {
 						onceWriteLength = restLength;
 					}
+
+					System.out.println("onceWriteLength:" + onceWriteLength);
+
 					onceWriteBuffer = Arrays.copyOfRange(buffer,
 							alreadyWriteLength, alreadyWriteLength
 									+ onceWriteLength);
@@ -614,6 +641,7 @@ public class CRFileSystem implements IFilesystem {
 								fileLength, fileLength.length) == 0) {
 							return length;
 						}
+						return IO_WRONG;
 					} else {
 						currentFatIndex = 0;
 						for (int i = 0; i < fatEntryBuf.length; i++) {
@@ -842,24 +870,35 @@ public class CRFileSystem implements IFilesystem {
 		}
 	}
 
+	/**
+	 * 清空文件内容，但为文件保留一个簇，文件长度为0
+	 * 
+	 * @return 成功返回0
+	 */
 	public int emptyFileContent() {
 
 		int currentIndex = (int) stat.st_ino;
+		System.out.println("emptyFileContent() stat.st_ino:" + stat.st_ino);
 		int nextIndex;
 
 		byte[] free = new byte[preEntryLengthInFat];
 		for (int i = 0; i < free.length; i++) {
 			free[i] = (byte) 0xfe;
 		}
-
+		byte[] EOF = new byte[preEntryLengthInFat];
+		for (int i = 0; i < free.length; i++) {
+			EOF[i] = (byte) 0xff;
+		}
 		byte[] indexBuffer = new byte[preEntryLengthInFat];
 
 		if (llio.read(headerLength + currentIndex * preEntryLengthInFat,
 				indexBuffer, indexBuffer.length) == 0) {
-			while (indexBuffer[0] != (byte) 0xff
-					|| indexBuffer[1] != (byte) 0xff) {
-				nextIndex = ((indexBuffer[0] & 0xff) << 8)
-						+ (indexBuffer[1] & 0xff);
+			while (!Arrays.equals(EOF, indexBuffer)) {
+				nextIndex = 0;
+				for (int i = 0; i < indexBuffer.length; i++) {
+					nextIndex <<= 8;
+					nextIndex ^= (int) indexBuffer[i] & 0xff;
+				}
 				if (writeEntryInFat(currentIndex, free) != 0) {
 					return FAILURE;
 				}
@@ -870,10 +909,22 @@ public class CRFileSystem implements IFilesystem {
 					return FAILURE;
 				}
 			}
-			if (writeEntryInFat(currentIndex, free) == 0) {
+
+			if (writeEntryInFat(currentIndex, free) == 0
+					&& writeEntryInFat((int) stat.st_ino, EOF) == 0) {
+				stat.st_size = 0;
+				int metadataIndex = findMetadataEntryIndexByFatIndex((int) stat.st_ino);
+				byte[] fileLength = LongTo_8_Bytes(0);
+				if (llio.write(headerLength + fatLength * 2 + metadataIndex
+						* preEntryLengthInMetaData + 82, fileLength,
+						fileLength.length) != 0) {
+					return IO_WRONG;
+				}
 				return SUCCESS;
 			}
-			return FAILURE;
+			else{
+				return IO_WRONG;
+			}
 		}
 
 		return FAILURE;
@@ -921,7 +972,8 @@ public class CRFileSystem implements IFilesystem {
 		int fatOffset = headerLength + fatIndex * preEntryLengthInFat;
 		if (llio.write(fatOffset, buffer, buffer.length) == 0
 				&& llio.write(fatOffset + fatLength, buffer, buffer.length) == 0) {
-			if (buffer[0] == free[0] && buffer[1] == free[1]) {
+			if (Arrays.equals(free, buffer)) {
+				System.out.println("fatBitMap[fatIndex]=0:" + fatIndex);
 				fatBitMap[fatIndex] = 0;
 			} else {
 				fatBitMap[fatIndex] = 1;
