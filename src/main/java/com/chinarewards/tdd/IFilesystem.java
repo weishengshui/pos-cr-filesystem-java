@@ -7,7 +7,7 @@ public interface IFilesystem {
 
 	int createFile(String fileName);
 
-	int deleteFile(String fileName);
+	int deleteFileByFileName(String fileName);
 
 	int read(long offset, byte[] buffer, int length);
 

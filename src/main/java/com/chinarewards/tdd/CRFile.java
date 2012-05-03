@@ -14,12 +14,14 @@ public class CRFile implements IFile {
 	private Stat stat = null;
 	private CRFile file = null;
 
-	public CRFile(CRFileSystem crfs){
+	public CRFile(CRFileSystem crfs) {
 		this.crfs = crfs;
 	}
-	public CRFile(){
-		
+
+	public CRFile() {
+
 	}
+
 	public IFile fopen(String filename, String mode) {
 		if (null == mode) {
 			return null;
@@ -42,7 +44,7 @@ public class CRFile implements IFile {
 			if (!crfs.isExists(filename)) {
 				return null;
 			}
-			
+
 			if (file.stat(filename, stat) == 0) {
 				crfs.setStat(stat);
 				file.crfs = crfs;
@@ -58,7 +60,7 @@ public class CRFile implements IFile {
 					return null;
 				}
 			}
-			
+
 			if ((file.stat(filename, stat)) != 0) {
 				return null;
 			}
@@ -77,7 +79,7 @@ public class CRFile implements IFile {
 					return null;
 				}
 			}
-			
+
 			if (file.stat(filename, stat) != 0) {
 				return null;
 			}
@@ -93,11 +95,15 @@ public class CRFile implements IFile {
 	public int fclose(IFile stream) {
 
 		if (isAvailableStream(stream)) {
-			stream=null;
+			CRFile file = (CRFile) stream;
+			file.postion = -1;
+			file.crfs = null;
+			file.file = null;
+			file.stat = null;
 			return 0; // success
 		}
 
-		return (int) CRFile.EOF;//failure
+		return (int) CRFile.EOF;// failure
 	}
 
 	public long ftell(IFile stream) {
@@ -162,6 +168,9 @@ public class CRFile implements IFile {
 		}
 
 		long readCount = file.crfs.read(file.postion, buffer, length) / size;
+		if (readCount < 0) {
+			return IFile.EOF;
+		}
 		file.postion += readCount * size;
 
 		return readCount;
@@ -181,6 +190,9 @@ public class CRFile implements IFile {
 		}
 
 		long writeCount = file.crfs.write(file.postion, buffer, length) / size;
+		if (writeCount < 0) {
+			return IFile.EOF;
+		}
 		file.postion += writeCount * size;
 
 		return writeCount;
@@ -193,7 +205,7 @@ public class CRFile implements IFile {
 		if (null == fileProperty) {
 			return (int) CRFile.EOF; // failure
 		}
-		
+
 		return 0; // success
 	}
 
@@ -201,16 +213,36 @@ public class CRFile implements IFile {
 
 		CRFile file = (CRFile) stream;
 
-		if (null == file || null == file.crfs || null == file.stat || null != file.file) {
+		if (null == file || null == file.crfs || null == file.stat
+				|| null != file.file || file.postion < 0) {
 			return false;
 		}
 
 		return true;
 	}
+
 	public int remove(String pathname) {
-		
-		return 0;
+		crfs = new CRFileSystem();
+		int result = crfs.deleteFileByFileName(pathname);
+		crfs = null;
+		if (result != 0) {
+			return (int) IFile.EOF;
+		}
+		return result;
 	}
-	
-	
+
+	public int remove(IFile stream) {
+		if(!isAvailableStream(stream)){
+			return (int)IFile.EOF;
+		}
+		CRFile file = (CRFile)stream;
+		int result = file.crfs.deleteFileByFatStat(file.stat);
+		fclose(file);
+		if(result ==0){
+		return result;
+		}else{
+			return (int)IFile.EOF;
+		}
+	}
+
 }

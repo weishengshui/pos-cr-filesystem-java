@@ -54,7 +54,7 @@ public class CRFileTest extends TestCase {
 	public void test_File_Stat_OK() {
 		// format the disk and create a file object
 		assertEquals(0, fs.format(true, 512));
-		//创建第一个文件
+		// 创建第一个文件
 		CRFile fileObject1 = (CRFile) file.fopen("file1", "w");
 		assertNotNull(fileObject1);
 
@@ -74,7 +74,7 @@ public class CRFileTest extends TestCase {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		//创建第二个文件
+		// 创建第二个文件
 		fileObject1 = (CRFile) file.fopen("file2", "w");
 		assertNotNull(fileObject1);
 
@@ -188,6 +188,56 @@ public class CRFileTest extends TestCase {
 		assertTrue(fileContents.equals(new String(buffer)));
 		// 查看文件位置指针
 		assertEquals(961, file.ftell(fileObject1));
+	}
+
+	// 删除文件测试
+	public void test_File_Remove() {
+		// format the disk and create a file object
+		assertEquals(0, fs.format(true, 512));
+		// 创建文件"file1"
+		CRFile fileObject1 = (CRFile) file.fopen("file1", "w");
+		assertNotNull(fileObject1);
+		// 查看文件位置指针
+		assertEquals(0, file.ftell(fileObject1));
+		String fileContents = "/2/12 1:33:44 PM CST: Eclipse is running in a JRE, but a JDK is required"
+				+ "Some Maven plugins may not work when importing projects or updating source folders."
+				+ "5/2/12 1:33:47 PM CST: Updating index central|http://repo1.maven.org/maven2"
+				+ "5/2/12 1:33:51 PM CST: Downloading d9d714e11cb097b3ffcec91cccc65d3e : nexus-maven-repository-index.properties"
+				+ "5/2/12 1:33:51 PM CST: Downloaded Repository[d9d714e11cb097b3ffcec91cccc65d3e|http://repo1.maven.org/maven2/.index]/nexus-maven-repository-index.properties"
+				+ "5/2/12 1:35:27 PM CST: Unable to download Repository[d9d714e11cb097b3ffcec91cccc65d3e|http://repo1.maven.org/maven2/.index]/nexus-maven-repository-index.gz: java.io.IOException: The server did not respond within the configured timeout."
+				+ "5/2/12 1:35:27 PM CST: Unable to update index for central|http://repo1.maven.org/maven2"
+				+ "5/2/12 1:47:47 PM CST: Maven Builder: AUTO_BUILD"
+				+ "5/2/12 1:51:33 PM CST: Maven Builder: AUTO_BUILD"
+				+ "5/2/12 1:54:57 PM CST: Maven Builder: AUTO_BUILD ";
+		assertEquals(961, fileContents.length());
+		byte[] buffer = fileContents.getBytes();
+
+		// 将961字节的内容写入文件
+		assertEquals(961, file.fwrite(buffer, 1, buffer.length, fileObject1));
+		// 查看文件位置指针
+		assertEquals(961, file.ftell(fileObject1));
+
+		// 删除文件
+		assertEquals(0, file.remove(fileObject1));
+
+		// 读取文件失败
+		buffer = new byte[fileContents.length()];
+		assertEquals(-1, file.fread(buffer, 1, buffer.length, fileObject1));
+		// 写文件失败
+		buffer = fileContents.getBytes();
+		assertEquals(-1, file.fwrite(buffer, 1, buffer.length, fileObject1));
+
+		// 创建一个新文件
+		fileObject1 = (CRFile) file.fopen("file1", "w");
+		assertEquals(0, file.ftell(fileObject1));
+
+		buffer = fileContents.getBytes();
+
+		// 将961字节的内容写入文件
+		assertEquals(961, file.fwrite(buffer, 1, buffer.length, fileObject1));
+		// 查看文件位置指针
+		assertEquals(961, file.ftell(fileObject1));
 
 	}
+
 }

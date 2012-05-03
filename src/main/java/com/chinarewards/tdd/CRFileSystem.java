@@ -10,7 +10,7 @@ public class CRFileSystem implements IFilesystem {
 	/**
 	 * constants
 	 */
-	public static final int FAILURE = 1;
+	public static final int FAILURE = -8;
 	public static final int SUCCESS = 0;
 	public static final int PARAM_INVALID = -1;
 	public static final int FILE_EXIST = -2;
@@ -376,7 +376,7 @@ public class CRFileSystem implements IFilesystem {
 		}
 	}
 
-	public int deleteFile(String fileName) {
+	public int deleteFileByFileName(String fileName) {
 		if (!isFormat()) {
 			return NOT_FORMAT;
 		}
@@ -420,6 +420,41 @@ public class CRFileSystem implements IFilesystem {
 		}
 	}
 
+	public int deleteFileByFatStat(Stat stat) {
+		if (!isFormat()) {
+			return NOT_FORMAT;
+		}
+		if (null == stat) {
+			return PARAM_INVALID;
+		}
+		setStat(stat);
+		int metadataEntryIndex = findMetadataEntryIndexByFatIndex((int) stat.st_ino);
+		byte[] metadataEntry = new byte[preEntryLengthInMetaData];
+		if (emptyFileContent() != 0) {
+			return FAILURE;
+		}
+		System.out.println("deleteFileByFatIndex(Stat stat) metadataEntryIndex:"
+				+ metadataEntryIndex);
+		byte[] free = new byte[preEntryLengthInFat];
+		for (int i = 0; i < free.length; i++) {
+			free[i] = (byte) 0xfe;
+		}
+		for (int i = 0; i < metadataEntry.length; i++) {
+			metadataEntry[i] = 0x00;
+		}
+		System.out.println("deleteFileByFatIndex(Stat stat) stat.st_ino:"
+				+ stat.st_ino);
+		if ((writeEntryInFat((int) stat.st_ino, free) != 0)
+				|| (llio.write(headerLength + fatLength * 2
+						+ metadataEntryIndex * preEntryLengthInMetaData,
+						metadataEntry, metadataEntry.length) != 0)) {
+			return IO_WRONG;
+		}
+		System.out.println("deleteFileByFatIndex(Stat stat) getAvailableSpace():"
+				+ getAvailableSpace());
+		return SUCCESS;
+	}
+
 	private boolean isRightFilename(String fileName) {
 		if (null == fileName || "".equals(fileName.trim())) {
 			return false;
@@ -445,6 +480,9 @@ public class CRFileSystem implements IFilesystem {
 		}
 		if (null == stat) {
 			return OPERATING_ERROR;
+		}
+		if (fatBitMap[(int) stat.st_ino] == 0) {
+			return PARAM_INVALID;
 		}
 		if (fileOffset > stat.st_size) {
 			return PARAM_INVALID;
@@ -921,8 +959,7 @@ public class CRFileSystem implements IFilesystem {
 					return IO_WRONG;
 				}
 				return SUCCESS;
-			}
-			else{
+			} else {
 				return IO_WRONG;
 			}
 		}

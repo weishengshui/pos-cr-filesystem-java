@@ -154,4 +154,6 @@ public interface IFile {
 	 */
 	int remove(final String pathname);
 	
+	int remove(IFile stream);
+	
 }
