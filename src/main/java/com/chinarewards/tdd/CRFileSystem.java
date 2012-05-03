@@ -55,7 +55,7 @@ public class CRFileSystem implements IFilesystem {
 	}
 
 	public CRFileSystem() {
-		llio = new FileBasedLowLevelIO("E:\\fileSystem\\system.vdk");
+		llio = new FileBasedLowLevelIO("/home/wss/disk/system.vdk");
 		initFileSystem();
 	}
 

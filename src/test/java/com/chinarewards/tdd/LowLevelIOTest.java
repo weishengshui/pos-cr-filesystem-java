@@ -9,7 +9,7 @@ public class LowLevelIOTest extends TestCase {
 
 	protected void setUp() throws Exception {
 		super.setUp();
-		llio = new FileBasedLowLevelIO("E:\\fileSystem\\system.vdk");
+		llio = new FileBasedLowLevelIO("/home/wss/disk/system.vdk");
 	}
 
 	protected void tearDown() throws Exception {

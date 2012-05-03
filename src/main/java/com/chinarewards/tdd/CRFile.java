@@ -1,7 +1,5 @@
 package com.chinarewards.tdd;
 
-import java.util.Date;
-
 /**
  * 
  * @author weishengshui
@@ -188,8 +186,8 @@ public class CRFile implements IFile {
 				|| size < 1 || count < 1) {
 			return CRFile.EOF;
 		}
-
-		long writeCount = file.crfs.write(file.postion, buffer, length) / size;
+		crfs.setStat(file.stat);
+		long writeCount = crfs.write(file.postion, buffer, length) / size;
 		if (writeCount < 0) {
 			return IFile.EOF;
 		}
@@ -232,16 +230,16 @@ public class CRFile implements IFile {
 	}
 
 	public int remove(IFile stream) {
-		if(!isAvailableStream(stream)){
-			return (int)IFile.EOF;
+		if (!isAvailableStream(stream)) {
+			return (int) IFile.EOF;
 		}
-		CRFile file = (CRFile)stream;
+		CRFile file = (CRFile) stream;
 		int result = file.crfs.deleteFileByFatStat(file.stat);
 		fclose(file);
-		if(result ==0){
-		return result;
-		}else{
-			return (int)IFile.EOF;
+		if (result == 0) {
+			return result;
+		} else {
+			return (int) IFile.EOF;
 		}
 	}
 

@@ -13,7 +13,7 @@ public class FileSystemTest extends TestCase {
 
 	protected void setUp() throws Exception {
 		super.setUp();
-		llio = new FileBasedLowLevelIO("E:\\fileSystem\\system.vdk");
+		llio = new FileBasedLowLevelIO("/home/wss/disk/system.vdk");
 		fs = new CRFileSystem(llio);
 	}
 
