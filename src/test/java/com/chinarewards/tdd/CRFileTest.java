@@ -227,7 +227,7 @@ public class CRFileTest extends TestCase {
 		buffer = fileContents.getBytes();
 		assertEquals(-1, file.fwrite(buffer, 1, buffer.length, fileObject1));
 
-		// 创建一个新文件
+		// 再一次创建文件
 		fileObject1 = (CRFile) file.fopen("file1", "w");
 		assertEquals(0, file.ftell(fileObject1));
 
