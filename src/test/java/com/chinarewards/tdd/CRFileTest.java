@@ -479,7 +479,6 @@ public class CRFileTest extends TestCase {
 
 		// 查看硬盘可用空间
 		assertTrue((885760 - 512) == fs.getAvailableSpace());
-
 	}
 
 	// 在文件的任意位置读
