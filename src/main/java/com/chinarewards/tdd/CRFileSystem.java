@@ -433,8 +433,9 @@ public class CRFileSystem implements IFilesystem {
 		if (emptyFileContent() != 0) {
 			return FAILURE;
 		}
-		System.out.println("deleteFileByFatIndex(Stat stat) metadataEntryIndex:"
-				+ metadataEntryIndex);
+		System.out
+				.println("deleteFileByFatIndex(Stat stat) metadataEntryIndex:"
+						+ metadataEntryIndex);
 		byte[] free = new byte[preEntryLengthInFat];
 		for (int i = 0; i < free.length; i++) {
 			free[i] = (byte) 0xfe;
@@ -450,8 +451,9 @@ public class CRFileSystem implements IFilesystem {
 						metadataEntry, metadataEntry.length) != 0)) {
 			return IO_WRONG;
 		}
-		System.out.println("deleteFileByFatIndex(Stat stat) getAvailableSpace():"
-				+ getAvailableSpace());
+		System.out
+				.println("deleteFileByFatIndex(Stat stat) getAvailableSpace():"
+						+ getAvailableSpace());
 		return SUCCESS;
 	}
 
@@ -718,6 +720,7 @@ public class CRFileSystem implements IFilesystem {
 				|| length > buffer.length || fileOffset > dataBlockLength
 				|| (length + fileOffset) > dataBlockLength) {
 			return PARAM_INVALID;
+
 		}
 		if (null == stat) {
 			return OPERATING_ERROR;
@@ -951,11 +954,17 @@ public class CRFileSystem implements IFilesystem {
 			if (writeEntryInFat(currentIndex, free) == 0
 					&& writeEntryInFat((int) stat.st_ino, EOF) == 0) {
 				stat.st_size = 0;
+				Date now = new Date();
+				byte[] modifiedTime = LongTo_8_Bytes(now.getTime());
 				int metadataIndex = findMetadataEntryIndexByFatIndex((int) stat.st_ino);
 				byte[] fileLength = LongTo_8_Bytes(0);
 				if (llio.write(headerLength + fatLength * 2 + metadataIndex
 						* preEntryLengthInMetaData + 82, fileLength,
-						fileLength.length) != 0) {
+						fileLength.length) != 0
+						|| llio.write(
+								headerLength + fatLength * 2 + metadataIndex
+										* preEntryLengthInMetaData + 72,
+										modifiedTime, modifiedTime.length) != 0) {
 					return IO_WRONG;
 				}
 				return SUCCESS;

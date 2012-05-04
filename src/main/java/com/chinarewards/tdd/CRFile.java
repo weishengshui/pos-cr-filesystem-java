@@ -10,7 +10,6 @@ public class CRFile implements IFile {
 	private CRFileSystem crfs = null;
 	private long postion;
 	private Stat stat = null;
-	private CRFile file = null;
 
 	public CRFile(CRFileSystem crfs) {
 		this.crfs = crfs;
@@ -32,20 +31,19 @@ public class CRFile implements IFile {
 			return null;
 		}
 
-		CRFileSystem crfs = new CRFileSystem();
 		if (!crfs.isFormat()) {
 			return null;
 		}
-		file = new CRFile();
+
+		CRFile file = new CRFile();
 		Stat stat = new Stat();
+
 		if ("r".equals(mode)) {
 			if (!crfs.isExists(filename)) {
 				return null;
 			}
 
-			if (file.stat(filename, stat) == 0) {
-				crfs.setStat(stat);
-				file.crfs = crfs;
+			if (this.stat(filename, stat) == 0) {
 				file.stat = stat;
 				file.postion = 0;
 				return file;
@@ -58,15 +56,13 @@ public class CRFile implements IFile {
 					return null;
 				}
 			}
-
-			if ((file.stat(filename, stat)) != 0) {
+			if ((this.stat(filename, stat)) != 0) {
 				return null;
 			}
 			crfs.setStat(stat);
 			if (crfs.emptyFileContent() != 0) {
 				return null;
 			}
-			file.crfs = crfs;
 			file.stat = stat;
 			file.postion = 0;
 
@@ -78,11 +74,9 @@ public class CRFile implements IFile {
 				}
 			}
 
-			if (file.stat(filename, stat) != 0) {
+			if (this.stat(filename, stat) != 0) {
 				return null;
 			}
-			crfs.setStat(stat);
-			file.crfs = crfs;
 			file.stat = stat;
 			file.postion = file.stat.st_size;
 			return file;
@@ -95,8 +89,6 @@ public class CRFile implements IFile {
 		if (isAvailableStream(stream)) {
 			CRFile file = (CRFile) stream;
 			file.postion = -1;
-			file.crfs = null;
-			file.file = null;
 			file.stat = null;
 			return 0; // success
 		}
@@ -121,17 +113,22 @@ public class CRFile implements IFile {
 
 		CRFile file = (CRFile) stream;
 		if (origin == CRFile.SEEK_END) {
-			file.postion = file.stat.st_size;
+			if (offset > 0) {
+				return (int) CRFile.EOF;
+			}
+			if ((offset + file.stat.st_size) < 0) {
+				return (int) CRFile.EOF;
+			}
+			file.postion = file.stat.st_size + offset;
 			return 0;
 		}
 		if (origin == CRFile.SEEK_CUR) {
-			if (offset < 1) {
-				return (int) CRFile.EOF;
-			}
-			if ((offset + file.postion) > file.stat.st_size) {
+			if (((offset + file.postion) < 0)
+					|| ((offset + file.postion) > file.stat.st_size)) {
 				return (int) CRFile.EOF;
 			}
 			file.postion += offset;
+			return 0;
 		}
 		if (origin == CRFile.SEEK_SET) {
 			if (offset < 0 || offset > file.stat.st_size) {
@@ -161,16 +158,14 @@ public class CRFile implements IFile {
 				|| size < 1 || count < 1) {
 			return CRFile.EOF;
 		}
-		if (file.postion == file.stat.st_size) {
-			return CRFile.EOF;
-		}
-
-		long readCount = file.crfs.read(file.postion, buffer, length) / size;
+		crfs.setStat(file.stat);
+		long readCount = crfs.read(file.postion, buffer, length) / size;
 		if (readCount < 0) {
 			return IFile.EOF;
 		}
-		file.postion += readCount * size;
-
+		if (readCount != 0) {
+			file.postion += readCount * size;
+		}
 		return readCount;
 	}
 
@@ -197,7 +192,6 @@ public class CRFile implements IFile {
 	}
 
 	public int stat(String filename, Stat buf) {
-		CRFileSystem crfs = new CRFileSystem();
 		crfs.setStat(buf);
 		Object[] fileProperty = crfs.setFileProperty(filename);
 		if (null == fileProperty) {
@@ -211,8 +205,7 @@ public class CRFile implements IFile {
 
 		CRFile file = (CRFile) stream;
 
-		if (null == file || null == file.crfs || null == file.stat
-				|| null != file.file || file.postion < 0) {
+		if (null == file || null == file.stat || file.postion < 0) {
 			return false;
 		}
 
@@ -220,9 +213,7 @@ public class CRFile implements IFile {
 	}
 
 	public int remove(String pathname) {
-		crfs = new CRFileSystem();
 		int result = crfs.deleteFileByFileName(pathname);
-		crfs = null;
 		if (result != 0) {
 			return (int) IFile.EOF;
 		}
@@ -234,7 +225,8 @@ public class CRFile implements IFile {
 			return (int) IFile.EOF;
 		}
 		CRFile file = (CRFile) stream;
-		int result = file.crfs.deleteFileByFatStat(file.stat);
+
+		int result = crfs.deleteFileByFatStat(file.stat);
 		fclose(file);
 		if (result == 0) {
 			return result;
